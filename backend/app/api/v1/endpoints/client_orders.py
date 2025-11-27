@@ -157,21 +157,11 @@ def get_status_history(
     return [OrderStatusHistoryItem.model_validate(h) for h in history]
 
 
-@router.post("/orders/{order_id}/ai/messages", response_model=ChatMessagePairResponse)
-def post_ai_message(
-    order_id: uuid.UUID,
-    payload: ChatMessageCreate,
-    db: Session = Depends(get_db_session),
-    current_user=Depends(get_current_user),
-):
-    order = order_service.get_order(db, order_id)
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    # Stub: echo user message, empty ai message
+def _stub_user_message(order_id: uuid.UUID, user_id: uuid.UUID, payload: ChatMessageCreate) -> ChatMessagePairResponse:
     user_msg = OrderChatMessage(
         id=uuid.uuid4(),
         orderId=order_id,
-        senderId=current_user.id,
+        senderId=user_id,
         senderType="CLIENT",
         messageText=payload.message,
         createdAt=datetime.utcnow(),
@@ -180,13 +170,51 @@ def post_ai_message(
     return ChatMessagePairResponse(userMessage=user_msg, aiMessage=None)
 
 
-@router.get("/orders/{order_id}/ai/messages", response_model=list[OrderChatMessage])
+@router.post("/orders/{order_id}/chat", response_model=ChatMessagePairResponse)
+def post_chat_message(
+    order_id: uuid.UUID,
+    payload: ChatMessageCreate,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+):
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    _ensure_ownership(order, current_user.id)
+    return _stub_user_message(order_id, current_user.id, payload)
+
+
+@router.get("/orders/{order_id}/chat", response_model=list[OrderChatMessage])
+def list_chat_messages(
+    order_id: uuid.UUID,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+):
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    _ensure_ownership(order, current_user.id)
+    return []
+
+
+# Deprecated AI chat aliases
+@router.post("/orders/{order_id}/ai/messages", response_model=ChatMessagePairResponse, include_in_schema=False)
+def post_ai_message(
+    order_id: uuid.UUID,
+    payload: ChatMessageCreate,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+):
+    return post_chat_message(order_id, payload, db, current_user)  # type: ignore[arg-type]
+
+
+@router.get("/orders/{order_id}/ai/messages", response_model=list[OrderChatMessage], include_in_schema=False)
 def list_ai_messages(
     order_id: uuid.UUID,
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
 ):
-    return []
+    return list_chat_messages(order_id, db, current_user)  # type: ignore[arg-type]
 
 
 @router.post("/orders/{order_id}/ai/analyze", response_model=AiAnalysis)

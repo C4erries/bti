@@ -93,7 +93,7 @@ const ClientOrderDetailsPage = () => {
   const loadChat = async () => {
     if (!orderId || !token) return;
     try {
-      const data = await apiFetch<OrderChatMessage[]>(`/orders/${orderId}/ai/messages`, {}, token);
+      const data = await apiFetch<OrderChatMessage[]>(`/orders/${orderId}/chat`, {}, token);
       setChatMessages(data);
     } catch {
       setChatMessages([]);
@@ -149,11 +149,10 @@ const ClientOrderDetailsPage = () => {
     e.preventDefault();
     if (!orderId || !token || !chatInput) return;
     try {
-      const data = await apiFetch<ChatMessagePairResponse>(
-        `/orders/${orderId}/ai/messages`,
-        { method: 'POST', data: { message: chatInput } },
-        token,
-      );
+      const data = await apiFetch<ChatMessagePairResponse>(`/orders/${orderId}/chat`, {
+        method: 'POST',
+        data: { message: chatInput },
+      }, token);
       const newMessages = [
         ...(data.userMessage ? [data.userMessage] : []),
         ...(data.aiMessage ? [data.aiMessage] : []),

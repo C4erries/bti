@@ -41,13 +41,17 @@ const ExecutorOrdersPage = () => {
       </div>
       <div className="mt-3 grid gap-3 lg:grid-cols-2">
         <label className="text-sm text-slate-700">
-          Статус
-          <input
+          Статус (NEW — новые, IN_PROGRESS — в работе, DONE — завершенные)
+          <select
             className={`${inputClass} mt-1`}
             value={filters.status}
             onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}
-            placeholder="SUBMITTED / ..."
-          />
+          >
+            <option value="">Все</option>
+            <option value="NEW">NEW</option>
+            <option value="IN_PROGRESS">IN_PROGRESS</option>
+            <option value="DONE">DONE</option>
+          </select>
         </label>
         <label className="text-sm text-slate-700">
           Код отдела

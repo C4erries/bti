@@ -357,6 +357,50 @@ paths:
                 items:
                   $ref: '#/components/schemas/OrderChatMessage'
 
+  /orders/{orderId}/chat:
+    post:
+      tags: [Client]
+      summary: Отправка сообщения в чат заказа
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessageCreate'
+      responses:
+        '200':
+          description: Ответ с сообщениями пользователя/AI (стаб)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessagePairResponse'
+    get:
+      tags: [Client]
+      summary: История сообщений чата
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Список сообщений
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderChatMessage'
+
   /orders/{orderId}/ai/analyze:
     post:
       tags: [Client]

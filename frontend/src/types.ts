@@ -50,8 +50,6 @@ export interface Order {
   description?: string | null;
   serviceTitle?: string | null;
   address?: string | null;
-  city?: string | null;
-  region?: string | null;
   districtCode?: string | null;
   houseTypeCode?: string | null;
   complexity?: string | null;
@@ -97,7 +95,6 @@ export interface ExecutorOrderListItem {
   totalPrice?: number | null;
   createdAt: string;
   complexity?: string | null;
-  city?: string | null;
   address?: string | null;
   departmentCode?: string | null;
 }
@@ -150,8 +147,16 @@ export interface AiAnalysis {
   orderId: string;
   decisionStatus: string;
   summary?: string | null;
-  risks?: string[] | null;
+  risks?: {
+    type?: string;
+    description?: string;
+    severity?: string | null;
+    zone?: string | null;
+  }[];
+  legalWarnings?: string[] | null;
+  financialWarnings?: string[] | null;
   recommendations?: string[] | null;
+  rawResponse?: Record<string, unknown> | null;
   createdAt?: string | null;
 }
 
