@@ -12,6 +12,7 @@ def main() -> None:
         version=app.version,
         description=app.description,
         routes=app.routes,
+        openapi_version="3.0.3"
     )
     out_path = Path(__file__).resolve().parent.parent / "swagger.yaml"
     with out_path.open("w", encoding="utf-8") as f:
