@@ -13,16 +13,10 @@ import {
 } from '../components/ui';
 import type { ClientChatThread, Service } from '../types';
 
-const SidebarItem = ({
-  chat,
-  isActive,
-}: {
-  chat: ClientChatThread;
-  isActive: boolean;
-}) => {
+const SidebarItem = ({ chat, isActive }: { chat: ClientChatThread; isActive: boolean }) => {
   return (
     <NavLink
-      to={`/client/chat/${chat.id}`}
+      to={`/client/chat/${chat.chatId}`}
       className={`block rounded-md px-3 py-2 text-sm hover:bg-slate-200 ${
         isActive ? 'bg-slate-200' : ''
       }`}
@@ -93,7 +87,7 @@ const ClientChatShell = () => {
       setChats((prev) => [created, ...prev]);
       setShowNew(false);
       setNewChat({ serviceCode: '', title: '', firstMessageText: '' });
-      navigate(`/client/chat/${created.id}`);
+      navigate(`/client/chat/${created.chatId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось создать чат');
     } finally {
@@ -163,7 +157,7 @@ const ClientChatShell = () => {
 
         <div className="mt-4 space-y-1">
           {chats.map((chat) => (
-            <SidebarItem key={chat.id} chat={chat} isActive={chat.id === activeChatId} />
+            <SidebarItem key={chat.chatId} chat={chat} isActive={chat.chatId === activeChatId} />
           ))}
           {chats.length === 0 && (
             <p className="text-sm text-slate-600">Нет чатов. Создайте новый чат.</p>

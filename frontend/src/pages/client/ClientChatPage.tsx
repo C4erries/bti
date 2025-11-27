@@ -10,13 +10,14 @@ import {
   subtleButtonClass,
   textareaClass,
 } from '../../components/ui';
-import type { ChatMessagePairResponse, Order, OrderChatMessage } from '../../types';
+import type { ChatMessagePairResponse, Order, OrderChatMessage, ClientChatThread } from '../../types';
 
 const ClientChatPage = () => {
   const { chatId } = useParams();
   const { token } = useAuth();
   const [messages, setMessages] = useState<OrderChatMessage[]>([]);
   const [order, setOrder] = useState<Order | null>(null);
+  const [threads, setThreads] = useState<ClientChatThread[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +25,7 @@ const ClientChatPage = () => {
 
   useEffect(() => {
     if (chatId && token) {
-      void Promise.all([loadChat(), loadOrder()]);
+      void Promise.all([loadThreads(), loadChat(), loadOrderIfAny()]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId, token]);
@@ -33,10 +34,20 @@ const ClientChatPage = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  const loadThreads = async () => {
+    if (!token) return;
+    try {
+      const data = await apiFetch<ClientChatThread[]>('/client/chats', {}, token);
+      setThreads(data);
+    } catch {
+      setThreads([]);
+    }
+  };
+
   const loadChat = async () => {
     if (!chatId || !token) return;
     try {
-      const data = await apiFetch<OrderChatMessage[]>(`/orders/${chatId}/chat`, {}, token);
+      const data = await apiFetch<OrderChatMessage[]>(`/chats/${chatId}/messages`, {}, token);
       setMessages(data);
       setError(null);
     } catch (err) {
@@ -44,10 +55,15 @@ const ClientChatPage = () => {
     }
   };
 
-  const loadOrder = async () => {
-    if (!chatId || !token) return;
+  const loadOrderIfAny = async () => {
+    if (!chatId || !token || threads.length === 0) return;
+    const thread = threads.find((t) => t.chatId === chatId);
+    if (!thread?.orderId) {
+      setOrder(null);
+      return;
+    }
     try {
-      const data = await apiFetch<Order>(`/client/orders/${chatId}`, {}, token);
+      const data = await apiFetch<Order>(`/client/orders/${thread.orderId}`, {}, token);
       setOrder(data);
     } catch {
       setOrder(null);
@@ -59,7 +75,7 @@ const ClientChatPage = () => {
     setLoading(true);
     try {
       const data = await apiFetch<ChatMessagePairResponse>(
-        `/orders/${chatId}/chat`,
+        `/chats/${chatId}/messages`,
         { method: 'POST', data: { message: input } },
         token,
       );
@@ -111,7 +127,7 @@ const ClientChatPage = () => {
             )}
             {messages.map((m, idx) => (
               <div
-                key={`${m.createdAt}-${idx}`}
+                key={m.id || `${m.createdAt || 'local'}-${idx}`}
                 className={`rounded border border-slate-200 p-2 ${
                   m.senderType === 'AI' ? 'bg-slate-50' : 'bg-white'
                 }`}

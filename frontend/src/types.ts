@@ -161,7 +161,8 @@ export interface AiAnalysis {
 }
 
 export interface ClientChatThread {
-  id: string; // equals orderId
+  chatId: string;
+  orderId?: string | null;
   serviceCode: number;
   serviceTitle: string;
   orderStatus?: string;
