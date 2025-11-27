@@ -17,22 +17,23 @@ from app.models.order import (
     OrderStatusHistory,
 )
 from app.models.user import User
-from app.schemas.orders import OrderCreate, OrderUpdate
+from app.schemas.orders import CreateOrderRequest, UpdateOrderRequest, SavePlanChangesRequest
 from app.services.user_service import ensure_client_profile
 
 
-def create_order(db: Session, client: User, data: OrderCreate) -> Order:
+def create_order(db: Session, client: User, data: CreateOrderRequest) -> Order:
     ensure_client_profile(db, client)
     order = Order(
         client_id=client.id,
         service_code=data.service_code,
-        department_code=None,
+        current_department_code=None,
         district_code=data.district_code,
         house_type_code=data.house_type_code,
         title=data.title,
         description=data.description,
         address=data.address,
-        area=data.area,
+        city=data.city,
+        region=data.region,
         status=OrderStatus.SUBMITTED,
         calculator_input=data.calculator_input or {},
     )
@@ -55,7 +56,7 @@ def get_client_orders(db: Session, client_id: uuid.UUID) -> list[Order]:
     return list(db.scalars(select(Order).where(Order.client_id == client_id)))
 
 
-def update_order_by_client(db: Session, order: Order, data: OrderUpdate) -> Order:
+def update_order_by_client(db: Session, order: Order, data: UpdateOrderRequest) -> Order:
     if order.status not in (OrderStatus.DRAFT, OrderStatus.SUBMITTED):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -65,9 +66,10 @@ def update_order_by_client(db: Session, order: Order, data: OrderUpdate) -> Orde
         "title",
         "description",
         "address",
+        "city",
+        "region",
         "district_code",
         "house_type_code",
-        "area",
         "calculator_input",
     ]:
         value = getattr(data, field)
@@ -177,12 +179,11 @@ def add_file(db: Session, order: Order, file: UploadFile, uploaded_by: User | No
     file_path = storage_dir / file.filename
     content = file.file.read()
     file_path.write_bytes(content)
-    base_url = settings.static_url.rstrip("/")
-    url = f"{base_url}/orders/{order.id}/{file.filename}"
+    path_value = f"{settings.static_url.rstrip('/')}/orders/{order.id}/{file.filename}"
     order_file = OrderFile(
         order_id=order.id,
         filename=file.filename,
-        url=url,
+        path=path_value,
         uploaded_by_id=uploaded_by.id if uploaded_by else None,
     )
     db.add(order_file)
@@ -196,20 +197,13 @@ def get_order_files(db: Session, order_id: uuid.UUID) -> list[OrderFile]:
 
 
 def add_plan_version(
-    db: Session, order: Order, geometry: dict | None, notes: str | None, user: User | None
+    db: Session, order: Order, payload: SavePlanChangesRequest
 ) -> OrderPlanVersion:
-    current_version = db.scalar(
-        select(OrderPlanVersion)
-        .where(OrderPlanVersion.order_id == order.id)
-        .order_by(OrderPlanVersion.version.desc())
-    )
-    next_version = (current_version.version if current_version else 0) + 1
     plan = OrderPlanVersion(
         order_id=order.id,
-        version=next_version,
-        geometry=geometry,
-        notes=notes,
-        is_applied=False,
+        version_type=payload.version_type,
+        plan=payload.plan,
+        is_applied=True,
     )
     db.add(plan)
     db.commit()
@@ -222,7 +216,7 @@ def get_plan_versions(db: Session, order_id: uuid.UUID) -> list[OrderPlanVersion
         db.scalars(
             select(OrderPlanVersion)
             .where(OrderPlanVersion.order_id == order_id)
-            .order_by(OrderPlanVersion.version)
+            .order_by(OrderPlanVersion.created_at)
         )
     )
 
@@ -241,16 +235,16 @@ def create_calendar_event(
     db: Session,
     executor_id: uuid.UUID,
     order_id: uuid.UUID | None,
-    start_at,
-    end_at,
+    start_time,
+    end_time,
     location: str | None,
     notes: str | None,
 ) -> ExecutorCalendarEvent:
     event = ExecutorCalendarEvent(
         executor_id=executor_id,
         order_id=order_id,
-        start_at=start_at,
-        end_at=end_at,
+        start_time=start_time,
+        end_time=end_time,
         location=location,
         notes=notes,
     )

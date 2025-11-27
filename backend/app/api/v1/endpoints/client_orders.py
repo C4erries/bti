@@ -1,21 +1,26 @@
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db_session
 from app.schemas.orders import (
-    OrderCreate,
-    OrderRead,
-    OrderUpdate,
-    OrderFileRead,
-    OrderPlanVersionRead,
-    OrderStatusHistoryRead,
-    PlanChangeRequest,
+    CreateOrderRequest,
+    Order,
+    UpdateOrderRequest,
+    OrderFile,
+    OrderPlanVersion,
+    OrderStatusHistoryItem,
+    SavePlanChangesRequest,
+    ChatMessageCreate,
+    ChatMessagePairResponse,
+    OrderChatMessage,
+    AiAnalysis,
 )
 from app.services import order_service
 
-router = APIRouter(prefix="/client", tags=["client-orders"])
+router = APIRouter(prefix="/client", tags=["Client"])
 
 
 def _ensure_ownership(order, user_id: uuid.UUID):
@@ -23,121 +28,194 @@ def _ensure_ownership(order, user_id: uuid.UUID):
         raise HTTPException(status_code=403, detail="Not your order")
 
 
-@router.get("/orders", response_model=list[OrderRead])
+@router.get("/orders", response_model=list[Order])
 def list_client_orders(
     db: Session = Depends(get_db_session), current_user=Depends(get_current_user)
-) -> list[OrderRead]:
+) -> list[Order]:
     orders = order_service.get_client_orders(db, current_user.id)
-    return [OrderRead.model_validate(o) for o in orders]
+    return [Order.model_validate(o) for o in orders]
 
 
-@router.post("/orders", response_model=OrderRead, status_code=201)
+@router.post("/orders", response_model=Order, status_code=201)
 def create_order(
-    payload: OrderCreate,
+    payload: CreateOrderRequest,
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
-) -> OrderRead:
+) -> Order:
     order = order_service.create_order(db, current_user, payload)
-    return OrderRead.model_validate(order)
+    return Order.model_validate(order)
 
 
-@router.get("/orders/{order_id}", response_model=OrderRead)
+@router.get("/orders/{order_id}", response_model=Order)
 def get_order(
     order_id: uuid.UUID,
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
-) -> OrderRead:
+) -> Order:
     order = order_service.get_order(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     _ensure_ownership(order, current_user.id)
-    return OrderRead.model_validate(order)
+    return Order.model_validate(order)
 
 
-@router.patch("/orders/{order_id}", response_model=OrderRead)
+@router.patch("/orders/{order_id}", response_model=Order)
 def update_order(
     order_id: uuid.UUID,
-    payload: OrderUpdate,
+    payload: UpdateOrderRequest,
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
-) -> OrderRead:
+) -> Order:
     order = order_service.get_order(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     _ensure_ownership(order, current_user.id)
     order = order_service.update_order_by_client(db, order, payload)
-    return OrderRead.model_validate(order)
+    return Order.model_validate(order)
 
 
-@router.post("/orders/{order_id}/files", response_model=OrderFileRead)
+@router.post("/orders/{order_id}/files", response_model=OrderFile, status_code=201)
 def upload_file(
     order_id: uuid.UUID,
     upload: UploadFile = File(...),
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
-) -> OrderFileRead:
+) -> OrderFile:
     order = order_service.get_order(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     _ensure_ownership(order, current_user.id)
     file = order_service.add_file(db, order, upload, uploaded_by=current_user)
-    return OrderFileRead.model_validate(file)
+    return OrderFile.model_validate(file)
 
 
-@router.get("/orders/{order_id}/files", response_model=list[OrderFileRead])
+@router.get("/orders/{order_id}/files", response_model=list[OrderFile])
 def get_files(
     order_id: uuid.UUID,
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
-) -> list[OrderFileRead]:
+) -> list[OrderFile]:
     order = order_service.get_order(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     _ensure_ownership(order, current_user.id)
     files = order_service.get_order_files(db, order_id)
-    return [OrderFileRead.model_validate(f) for f in files]
+    return [OrderFile.model_validate(f) for f in files]
 
 
-@router.get("/orders/{order_id}/plan", response_model=list[OrderPlanVersionRead])
+@router.get("/orders/{order_id}/plan", response_model=OrderPlanVersion)
 def get_plan_versions(
     order_id: uuid.UUID,
+    version: str | None = None,
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
-) -> list[OrderPlanVersionRead]:
+) -> OrderPlanVersion:
     order = order_service.get_order(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     _ensure_ownership(order, current_user.id)
     versions = order_service.get_plan_versions(db, order_id)
-    return [OrderPlanVersionRead.model_validate(v) for v in versions]
+    if version:
+        match = next((v for v in versions if v.version_type.lower() == version.lower()), None)
+        if match:
+            return OrderPlanVersion.model_validate(match)
+    return OrderPlanVersion.model_validate(versions[-1]) if versions else None
 
 
-@router.post("/orders/{order_id}/plan/changes", response_model=OrderPlanVersionRead)
+@router.post("/orders/{order_id}/plan/changes", response_model=OrderPlanVersion)
 def add_plan_change(
     order_id: uuid.UUID,
-    payload: PlanChangeRequest,
+    payload: SavePlanChangesRequest,
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
-) -> OrderPlanVersionRead:
+) -> OrderPlanVersion:
     order = order_service.get_order(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     _ensure_ownership(order, current_user.id)
-    version = order_service.add_plan_version(
-        db, order, geometry=payload.geometry, notes=payload.notes, user=current_user
-    )
-    return OrderPlanVersionRead.model_validate(version)
+    version = order_service.add_plan_version(db, order, payload)
+    return OrderPlanVersion.model_validate(version)
 
 
-@router.get("/orders/{order_id}/status-history", response_model=list[OrderStatusHistoryRead])
+@router.get("/orders/{order_id}/status-history", response_model=list[OrderStatusHistoryItem])
 def get_status_history(
     order_id: uuid.UUID,
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
-) -> list[OrderStatusHistoryRead]:
+) -> list[OrderStatusHistoryItem]:
     order = order_service.get_order(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     _ensure_ownership(order, current_user.id)
     history = order_service.get_status_history(db, order_id)
-    return [OrderStatusHistoryRead.model_validate(h) for h in history]
+    return [OrderStatusHistoryItem.model_validate(h) for h in history]
+
+
+@router.post("/orders/{order_id}/ai/messages", response_model=ChatMessagePairResponse)
+def post_ai_message(
+    order_id: uuid.UUID,
+    payload: ChatMessageCreate,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+):
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    # Stub: echo user message, empty ai message
+    user_msg = OrderChatMessage(
+        id=uuid.uuid4(),
+        orderId=order_id,
+        senderId=current_user.id,
+        senderType="CLIENT",
+        messageText=payload.message,
+        createdAt=datetime.utcnow(),
+        meta=None,
+    )
+    return ChatMessagePairResponse(userMessage=user_msg, aiMessage=None)
+
+
+@router.get("/orders/{order_id}/ai/messages", response_model=list[OrderChatMessage])
+def list_ai_messages(
+    order_id: uuid.UUID,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+):
+    return []
+
+
+@router.post("/orders/{order_id}/ai/analyze", response_model=AiAnalysis)
+def trigger_ai_analyze(
+    order_id: uuid.UUID,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+):
+    analysis = AiAnalysis(
+        id=uuid.uuid4(),
+        orderId=order_id,
+        decisionStatus="UNKNOWN",
+        summary=None,
+        risks=[],
+        legalWarnings=None,
+        financialWarnings=None,
+        rawResponse=None,
+    )
+    return analysis
+
+
+@router.get("/orders/{order_id}/ai/analysis", response_model=AiAnalysis)
+def get_ai_analysis(
+    order_id: uuid.UUID,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+):
+    analysis = AiAnalysis(
+        id=uuid.uuid4(),
+        orderId=order_id,
+        decisionStatus="UNKNOWN",
+        summary=None,
+        risks=[],
+        legalWarnings=None,
+        financialWarnings=None,
+        rawResponse=None,
+    )
+    return analysis

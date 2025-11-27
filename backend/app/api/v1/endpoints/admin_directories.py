@@ -18,7 +18,7 @@ from app.schemas.directory import (
 )
 from app.services import directory_service
 
-router = APIRouter(prefix="/admin", tags=["admin-directories"])
+router = APIRouter(prefix="/admin", tags=["Admin"])
 
 
 @router.get("/services", response_model=list[ServiceRead])
@@ -39,7 +39,7 @@ def create_service(
 
 @router.patch("/services/{code}", response_model=ServiceRead)
 def update_service(
-    code: str,
+    code: int,
     data: ServiceUpdate,
     db: Session = Depends(get_db_session),
     admin=Depends(get_current_admin),

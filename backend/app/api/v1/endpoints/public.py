@@ -18,9 +18,9 @@ def list_services(db: Session = Depends(get_db_session)):
     return [ServiceRead.model_validate(s) for s in services]
 
 
-@router.get("/services/{code}", response_model=ServiceRead)
-def get_service(code: str, db: Session = Depends(get_db_session)):
-    service = directory_service.get_service(db, code)
+@router.get("/services/{serviceId}", response_model=ServiceRead)
+def get_service(serviceId: int, db: Session = Depends(get_db_session)):
+    service = directory_service.get_service(db, serviceId)
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
     return ServiceRead.model_validate(service)

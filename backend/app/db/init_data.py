@@ -22,31 +22,31 @@ def init_directories(db: Session):
         directory_service.upsert_department(db, dept)
 
     districts = [
-        DistrictCreate(code="central", name="Central", coefficient=1.2),
-        DistrictCreate(code="north", name="North", coefficient=1.0),
-        DistrictCreate(code="south", name="South", coefficient=0.9),
+        DistrictCreate(code="central", name="Central", priceCoef=1.2),
+        DistrictCreate(code="north", name="North", priceCoef=1.0),
+        DistrictCreate(code="south", name="South", priceCoef=0.9),
     ]
     for dist in districts:
         directory_service.upsert_district(db, dist)
 
     house_types = [
-        HouseTypeCreate(code="panel", name="Panel building", coefficient=1.0),
-        HouseTypeCreate(code="brick", name="Brick building", coefficient=1.1),
+        HouseTypeCreate(code="panel", name="Panel building", priceCoef=1.0),
+        HouseTypeCreate(code="brick", name="Brick building", priceCoef=1.1),
     ]
     for ht in house_types:
         directory_service.upsert_house_type(db, ht)
 
     services = [
         ServiceCreate(
-            code="bti_plan",
-            name="BTI plan",
+            code=1,
+            title="BTI plan",
             department_code="BTI",
             base_price=5000,
             description="Measurements and BTI documentation",
         ),
         ServiceCreate(
-            code="replan",
-            name="Remodel approval",
+            code=2,
+            title="Remodel approval",
             department_code="CAD",
             base_price=12000,
             description="Support for approval of remodelling",
@@ -107,7 +107,7 @@ def init_orders(db: Session):
         db,
         client=client,
         data=OrderCreate(
-            service_code="bti_plan",
+            service_code=1,
             title="BTI plan for remodel",
             description="Need measurements and technical plan",
             address="Sample address 1",

@@ -6,13 +6,17 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db_session
 from app.models.order import OrderStatus
 from app.schemas.orders import (
-    OrderFileRead,
-    OrderRead,
-    OrderStatusHistoryRead,
+    ExecutorOrderListItem,
+    ExecutorOrderDetails,
+    OrderFile,
+    OrderStatusHistoryItem,
+    AvailableSlot,
+    ScheduleVisitRequest,
+    ScheduleVisitUpdateRequest,
 )
 from app.services import order_service
 
-router = APIRouter(prefix="/executor", tags=["executor-orders"])
+router = APIRouter(prefix="/executor", tags=["Executor"])
 
 
 def _ensure_executor(user):
@@ -20,78 +24,149 @@ def _ensure_executor(user):
         raise HTTPException(status_code=403, detail="Executor profile required")
 
 
-@router.get("/orders", response_model=list[OrderRead])
+@router.get("/orders", response_model=list[ExecutorOrderListItem])
 def list_executor_orders(
-    status: OrderStatus | None = Query(default=None),
+    status: str | None = Query(default=None),
     department_code: str | None = Query(default=None),
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
-) -> list[OrderRead]:
+) -> list[ExecutorOrderListItem]:
     _ensure_executor(current_user)
-    orders = order_service.get_executor_orders(db, current_user.id, status, department_code)
-    return [OrderRead.model_validate(o) for o in orders]
+    status_map = {"NEW": OrderStatus.SUBMITTED, "IN_PROGRESS": OrderStatus.DOCUMENTS_IN_PROGRESS, "DONE": OrderStatus.COMPLETED}
+    status_filter = status_map.get(status) if status else None
+    orders = order_service.get_executor_orders(db, current_user.id, status_filter, department_code)
+    return [
+        ExecutorOrderListItem(
+            id=o.id,
+            status=o.status.value,
+            serviceTitle=o.service.title if o.service else "",
+            totalPrice=o.total_price,
+            createdAt=o.created_at,
+            complexity=o.complexity,
+            city=o.city,
+            address=o.address,
+            departmentCode=o.current_department_code,
+        )
+        for o in orders
+    ]
 
 
-@router.get("/orders/{order_id}", response_model=OrderRead)
+@router.get("/orders/{order_id}", response_model=ExecutorOrderDetails)
 def get_order(
     order_id: uuid.UUID,
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
-) -> OrderRead:
+) -> ExecutorOrderDetails:
     _ensure_executor(current_user)
     order = order_service.get_order(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    return OrderRead.model_validate(order)
+    return ExecutorOrderDetails(
+        order=order,
+        files=[OrderFile.model_validate(f) for f in order.files],
+        planOriginal=None,
+        planModified=None,
+        statusHistory=[OrderStatusHistoryItem.model_validate(h) for h in order.status_history],
+        client=order.client,
+        executorAssignment=None,
+    )
 
 
-@router.post("/orders/{order_id}/take", response_model=OrderRead)
+@router.post("/orders/{order_id}/take", response_model=ExecutorOrderDetails)
 def take_order(
     order_id: uuid.UUID,
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
-) -> OrderRead:
+) -> ExecutorOrderDetails:
     _ensure_executor(current_user)
     order = order_service.get_order(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     order_service.executor_take_order(db, order, current_user)
     db.refresh(order)
-    return OrderRead.model_validate(order)
+    return get_order(order_id, db, current_user)
 
 
-@router.post("/orders/{order_id}/decline", response_model=OrderRead)
+@router.post("/orders/{order_id}/decline", response_model=ExecutorOrderDetails)
 def decline_order(
     order_id: uuid.UUID,
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
-) -> OrderRead:
+) -> ExecutorOrderDetails:
     _ensure_executor(current_user)
     order = order_service.get_order(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     order_service.executor_decline_order(db, order, current_user)
     db.refresh(order)
-    return OrderRead.model_validate(order)
+    return get_order(order_id, db, current_user)
 
 
-@router.get("/orders/{order_id}/files", response_model=list[OrderFileRead])
+@router.get("/orders/{order_id}/files", response_model=list[OrderFile])
 def list_files(
     order_id: uuid.UUID,
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
-) -> list[OrderFileRead]:
+) -> list[OrderFile]:
     _ensure_executor(current_user)
     files = order_service.get_order_files(db, order_id)
-    return [OrderFileRead.model_validate(f) for f in files]
+    return [OrderFile.model_validate(f) for f in files]
 
 
-@router.get("/orders/{order_id}/status-history", response_model=list[OrderStatusHistoryRead])
+@router.get("/orders/{order_id}/status-history", response_model=list[OrderStatusHistoryItem])
 def list_status_history(
     order_id: uuid.UUID,
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
-) -> list[OrderStatusHistoryRead]:
+) -> list[OrderStatusHistoryItem]:
     _ensure_executor(current_user)
     history = order_service.get_status_history(db, order_id)
-    return [OrderStatusHistoryRead.model_validate(h) for h in history]
+    return [OrderStatusHistoryItem.model_validate(h) for h in history]
+
+
+@router.get("/orders/{order_id}/available-slots", response_model=list[AvailableSlot])
+def available_slots(
+    order_id: uuid.UUID,
+    dateFrom: str | None = None,
+    dateTo: str | None = None,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+):
+    _ensure_executor(current_user)
+    # Stub available slots
+    return []
+
+
+@router.post("/orders/{order_id}/schedule-visit")
+def schedule_visit(
+    order_id: uuid.UUID,
+    payload: ScheduleVisitRequest,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+):
+    _ensure_executor(current_user)
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order.planned_visit_at = payload.start_time
+    db.add(order)
+    db.commit()
+    return {"status": "ok"}
+
+
+@router.patch("/orders/{order_id}/schedule-visit")
+def update_visit(
+    order_id: uuid.UUID,
+    payload: ScheduleVisitUpdateRequest,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+):
+    _ensure_executor(current_user)
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if payload.start_time:
+        order.planned_visit_at = payload.start_time
+    db.add(order)
+    db.commit()
+    return {"status": "ok"}

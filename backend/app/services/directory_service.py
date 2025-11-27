@@ -39,14 +39,20 @@ def upsert_service(db: Session, data: ServiceCreate | ServiceUpdate, code: str |
     if svc_code is None:
         raise ValueError("Service code is required")
     service = db.get(Service, svc_code) or Service(code=svc_code)
-    if data.name is not None:
-        service.name = data.name
+    if getattr(data, "title", None) is not None:
+        service.title = data.title
     if data.description is not None:
         service.description = data.description
     if hasattr(data, "base_price") and data.base_price is not None:
         service.base_price = data.base_price
     if hasattr(data, "department_code") and data.department_code is not None:
         service.department_code = data.department_code
+    if hasattr(data, "base_duration_days") and data.base_duration_days is not None:
+        service.base_duration_days = data.base_duration_days
+    if hasattr(data, "required_docs") and data.required_docs is not None:
+        service.required_docs = data.required_docs
+    if hasattr(data, "is_active") and data.is_active is not None:
+        service.is_active = data.is_active
     db.add(service)
     db.commit()
     db.refresh(service)
@@ -57,7 +63,7 @@ def list_services(db: Session) -> list[Service]:
     return list(db.scalars(select(Service)))
 
 
-def get_service(db: Session, code: str) -> Service | None:
+def get_service(db: Session, code: int) -> Service | None:
     return db.get(Service, code)
 
 
@@ -68,8 +74,8 @@ def upsert_district(db: Session, data: DistrictCreate | DistrictUpdate, code: st
     district = db.get(District, district_code) or District(code=district_code)
     if data.name is not None:
         district.name = data.name
-    if hasattr(data, "coefficient") and data.coefficient is not None:
-        district.coefficient = data.coefficient
+    if hasattr(data, "price_coef") and data.price_coef is not None:
+        district.price_coef = data.price_coef
     db.add(district)
     db.commit()
     db.refresh(district)
@@ -93,8 +99,8 @@ def upsert_house_type(db: Session, data: HouseTypeCreate | HouseTypeUpdate, code
         house_type.name = data.name
     if data.description is not None:
         house_type.description = data.description
-    if hasattr(data, "coefficient") and data.coefficient is not None:
-        house_type.coefficient = data.coefficient
+    if hasattr(data, "price_coef") and data.price_coef is not None:
+        house_type.price_coef = data.price_coef
     db.add(house_type)
     db.commit()
     db.refresh(house_type)

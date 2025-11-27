@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DepartmentBase(BaseModel):
@@ -21,11 +21,16 @@ class DepartmentRead(DepartmentBase):
 
 
 class ServiceBase(BaseModel):
-    code: str
-    name: str
+    code: int
+    title: str
     description: str | None = None
-    base_price: float | None = None
-    department_code: str | None = None
+    department_code: str | None = Field(default=None, alias="departmentCode")
+    base_price: float | None = Field(default=None, alias="basePrice")
+    base_duration_days: int | None = Field(default=None, alias="baseDurationDays")
+    required_docs: dict | None = Field(default=None, alias="requiredDocs")
+    is_active: bool | None = Field(default=True, alias="isActive")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ServiceCreate(ServiceBase):
@@ -33,20 +38,27 @@ class ServiceCreate(ServiceBase):
 
 
 class ServiceUpdate(BaseModel):
-    name: str | None = None
+    title: str | None = None
     description: str | None = None
-    base_price: float | None = None
-    department_code: str | None = None
+    department_code: str | None = Field(default=None, alias="departmentCode")
+    base_price: float | None = Field(default=None, alias="basePrice")
+    base_duration_days: int | None = Field(default=None, alias="baseDurationDays")
+    required_docs: dict | None = Field(default=None, alias="requiredDocs")
+    is_active: bool | None = Field(default=None, alias="isActive")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class ServiceRead(ServiceBase):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class DistrictBase(BaseModel):
     code: str
     name: str
-    coefficient: float = 1.0
+    price_coef: float | None = Field(default=1.0, alias="priceCoef")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class DistrictCreate(DistrictBase):
@@ -55,18 +67,21 @@ class DistrictCreate(DistrictBase):
 
 class DistrictUpdate(BaseModel):
     name: str | None = None
-    coefficient: float | None = None
+    price_coef: float | None = Field(default=None, alias="priceCoef")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class DistrictRead(DistrictBase):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class HouseTypeBase(BaseModel):
     code: str
     name: str
-    description: str | None = None
-    coefficient: float = 1.0
+    price_coef: float | None = Field(default=1.0, alias="priceCoef")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class HouseTypeCreate(HouseTypeBase):
@@ -75,9 +90,10 @@ class HouseTypeCreate(HouseTypeBase):
 
 class HouseTypeUpdate(BaseModel):
     name: str | None = None
-    description: str | None = None
-    coefficient: float | None = None
+    price_coef: float | None = Field(default=None, alias="priceCoef")
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class HouseTypeRead(HouseTypeBase):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)

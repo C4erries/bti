@@ -34,6 +34,7 @@ class AssignmentStatus(str, enum.Enum):
     ASSIGNED = "ASSIGNED"
     ACCEPTED = "ACCEPTED"
     DECLINED = "DECLINED"
+    COMPLETED = "COMPLETED"
 
 
 class CalendarStatus(str, enum.Enum):
@@ -47,14 +48,18 @@ class Order(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
     client_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("users.id"), nullable=False)
-    service_code: Mapped[str] = mapped_column(String(50), ForeignKey("services.code"), nullable=False)
+    service_code: Mapped[int] = mapped_column(Integer, ForeignKey("services.code"), nullable=False)
+    current_department_code: Mapped[str | None] = mapped_column(String(50), ForeignKey("departments.code"))
     department_code: Mapped[str | None] = mapped_column(String(50), ForeignKey("departments.code"))
     district_code: Mapped[str | None] = mapped_column(String(50), ForeignKey("districts.code"))
     house_type_code: Mapped[str | None] = mapped_column(String(50), ForeignKey("house_types.code"))
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text)
     address: Mapped[str | None] = mapped_column(String(255))
+    city: Mapped[str | None] = mapped_column(String(255))
+    region: Mapped[str | None] = mapped_column(String(255))
     area: Mapped[float | None] = mapped_column(Float)
+    complexity: Mapped[str | None] = mapped_column(String(20))
     status: Mapped[OrderStatus] = mapped_column(
         Enum(OrderStatus), default=OrderStatus.DRAFT, nullable=False
     )
@@ -63,6 +68,8 @@ class Order(Base):
     total_price: Mapped[float | None] = mapped_column(Float)
     ai_decision_status: Mapped[str | None] = mapped_column(String(100))
     ai_decision_summary: Mapped[str | None] = mapped_column(Text)
+    planned_visit_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow
     )
@@ -114,7 +121,7 @@ class OrderFile(Base):
     id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
     order_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("orders.id"), nullable=False)
     filename: Mapped[str] = mapped_column(String(255))
-    url: Mapped[str | None] = mapped_column(String(500))
+    path: Mapped[str] = mapped_column(String(500))
     description: Mapped[str | None] = mapped_column(Text)
     uploaded_by_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(
@@ -130,9 +137,8 @@ class OrderPlanVersion(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
     order_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("orders.id"), nullable=False)
-    version: Mapped[int] = mapped_column(Integer)
-    geometry: Mapped[dict | None] = mapped_column(JSON)
-    notes: Mapped[str | None] = mapped_column(Text)
+    version_type: Mapped[str] = mapped_column(String(20))  # ORIGINAL / MODIFIED
+    plan: Mapped[dict] = mapped_column(JSON)
     is_applied: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow
@@ -146,8 +152,10 @@ class OrderChatMessage(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
     order_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("orders.id"), nullable=False)
-    sender_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("users.id"), nullable=False)
-    message: Mapped[str] = mapped_column(Text)
+    sender_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("users.id"))
+    sender_type: Mapped[str | None] = mapped_column(String(20))
+    message_text: Mapped[str] = mapped_column(Text)
+    meta: Mapped[dict | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow
     )
@@ -184,8 +192,10 @@ class ExecutorCalendarEvent(Base):
     id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
     executor_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("users.id"), nullable=False)
     order_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("orders.id"))
-    start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    end_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    title: Mapped[str | None] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text)
+    start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    end_time: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     status: Mapped[CalendarStatus] = mapped_column(Enum(CalendarStatus), default=CalendarStatus.PLANNED)
     location: Mapped[str | None] = mapped_column(String(255))
     notes: Mapped[str | None] = mapped_column(Text)

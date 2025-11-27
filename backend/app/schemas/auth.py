@@ -1,12 +1,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, ConfigDict
-
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+from pydantic import BaseModel, EmailStr, ConfigDict, Field
 
 
 class LoginRequest(BaseModel):
@@ -14,15 +9,22 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class MeResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+class AuthTokenResponse(BaseModel):
+    access_token: str = Field(alias="accessToken")
+    token_type: str = Field(default="Bearer", alias="tokenType")
 
-    id: uuid.UUID
-    email: EmailStr
-    full_name: str | None = None
-    phone: str | None = None
-    is_admin: bool
-    is_client: bool
-    is_executor: bool
-    created_at: datetime
-    executor_department: str | None = None
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class CurrentUserResponse(BaseModel):
+    user: "User"
+    is_client: bool = Field(alias="isClient")
+    is_executor: bool = Field(alias="isExecutor")
+    is_admin: bool = Field(alias="isAdmin")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+from app.schemas.user import User  # noqa: E402
+
+CurrentUserResponse.model_rebuild()
