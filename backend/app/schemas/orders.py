@@ -96,8 +96,6 @@ class Order(BaseModel):
     title: str
     description: str | None = None
     address: str | None = None
-    city: str | None = None
-    region: str | None = None
     district_code: str | None = Field(default=None, alias="districtCode")
     house_type_code: str | None = Field(default=None, alias="houseTypeCode")
     complexity: str | None = None
@@ -120,8 +118,6 @@ class CreateOrderRequest(BaseModel):
     title: str
     description: str | None = None
     address: str | None = None
-    city: str | None = None
-    region: str | None = None
     district_code: str | None = Field(default=None, alias="districtCode")
     house_type_code: str | None = Field(default=None, alias="houseTypeCode")
     calculator_input: dict[str, Any] | None = Field(default=None, alias="calculatorInput")
@@ -133,8 +129,6 @@ class UpdateOrderRequest(BaseModel):
     title: str | None = None
     description: str | None = None
     address: str | None = None
-    city: str | None = None
-    region: str | None = None
     district_code: str | None = Field(default=None, alias="districtCode")
     house_type_code: str | None = Field(default=None, alias="houseTypeCode")
     calculator_input: dict[str, Any] | None = Field(default=None, alias="calculatorInput")
@@ -158,7 +152,6 @@ class ExecutorOrderListItem(BaseModel):
     total_price: float | None = Field(default=None, alias="totalPrice")
     created_at: datetime = Field(alias="createdAt")
     complexity: str | None = None
-    city: str | None = None
     address: str | None = None
     department_code: str | None = Field(default=None, alias="departmentCode")
 

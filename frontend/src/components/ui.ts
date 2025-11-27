@@ -14,3 +14,6 @@ export const buttonClass =
 
 export const subtleButtonClass =
   'inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50';
+
+export const badgeClass =
+  'rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700';

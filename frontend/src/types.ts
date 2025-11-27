@@ -48,6 +48,7 @@ export interface Order {
   status: string;
   title: string;
   description?: string | null;
+  serviceTitle?: string | null;
   address?: string | null;
   city?: string | null;
   region?: string | null;
@@ -127,4 +128,34 @@ export interface ExecutorCalendarEvent {
   location?: string | null;
   status?: string | null;
   createdAt?: string | null;
+}
+
+export interface OrderChatMessage {
+  id?: string;
+  orderId: string;
+  senderId?: string | null;
+  senderType?: string | null;
+  messageText: string;
+  meta?: Record<string, unknown> | null;
+  createdAt?: string | null;
+}
+
+export interface ChatMessagePairResponse {
+  userMessage?: OrderChatMessage;
+  aiMessage?: OrderChatMessage;
+}
+
+export interface AiAnalysis {
+  id: string;
+  orderId: string;
+  decisionStatus: string;
+  summary?: string | null;
+  risks?: string[] | null;
+  recommendations?: string[] | null;
+  createdAt?: string | null;
+}
+
+export interface Department {
+  code: string;
+  name?: string | null;
 }

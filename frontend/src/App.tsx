@@ -1,77 +1,150 @@
-import { useState } from 'react';
-import { API_URL } from './api/client';
-import { useAuth } from './context/AuthContext';
-import { AuthSection } from './sections/AuthSection';
-import { ClientSection } from './sections/ClientSection';
-import { ExecutorSection } from './sections/ExecutorSection';
-import { AdminSection } from './sections/AdminSection';
-import { subtleButtonClass } from './components/ui';
+import { BrowserRouter, Routes, Route, Outlet, Link, Navigate } from 'react-router-dom';
+import Layout from './components/Layout';
+import HomePage from './pages/HomePage';
+import AuthPage from './pages/AuthPage';
+import ServiceCatalogPage from './pages/client/ServiceCatalogPage';
+import CreateOrderPage from './pages/client/CreateOrderPage';
+import ClientOrdersPage from './pages/client/OrdersPage';
+import ClientOrderDetailsPage from './pages/client/OrderDetailsPage';
+import ExecutorOrdersPage from './pages/executor/ExecutorOrdersPage';
+import ExecutorOrderDetailsPage from './pages/executor/ExecutorOrderDetailsPage';
+import ExecutorCalendarPage from './pages/executor/ExecutorCalendarPage';
+import AdminUsersPage from './pages/admin/AdminUsersPage';
+import AdminExecutorsPage from './pages/admin/AdminExecutorsPage';
+import AdminOrdersPage from './pages/admin/AdminOrdersPage';
+import AdminCatalogsPage from './pages/admin/AdminCatalogsPage';
+import { RequireAuth, RequireRole } from './components/Protected';
+import { cardClass, sectionTitleClass, subtleButtonClass } from './components/ui';
 
-type TabKey = 'auth' | 'client' | 'executor' | 'admin';
+const ClientLayout = () => (
+  <div className="space-y-3">
+    <div className={cardClass}>
+      <div className="flex flex-wrap gap-2">
+        <Link className={subtleButtonClass} to="/client/services">
+          Каталог услуг
+        </Link>
+        <Link className={subtleButtonClass} to="/client/orders">
+          Мои заказы
+        </Link>
+        <Link className={subtleButtonClass} to="/client/orders/new">
+          Создать заказ
+        </Link>
+      </div>
+    </div>
+    <Outlet />
+  </div>
+);
 
-const tabs: { key: TabKey; label: string }[] = [
-  { key: 'auth', label: 'Auth' },
-  { key: 'client', label: 'Client' },
-  { key: 'executor', label: 'Executor' },
-  { key: 'admin', label: 'Admin' },
-];
+const ExecutorLayout = () => (
+  <div className="space-y-3">
+    <div className={cardClass}>
+      <div className="flex flex-wrap gap-2">
+        <Link className={subtleButtonClass} to="/executor/orders">
+          Заказы
+        </Link>
+        <Link className={subtleButtonClass} to="/executor/calendar">
+          Календарь
+        </Link>
+      </div>
+    </div>
+    <Outlet />
+  </div>
+);
 
-const TabButton = ({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) => (
-  <button
-    className={`${subtleButtonClass} ${active ? 'border-blue-600 bg-blue-50 text-blue-700' : ''}`}
-    onClick={onClick}
-  >
-    {label}
-  </button>
+const AdminLayout = () => (
+  <div className="space-y-3">
+    <div className={cardClass}>
+      <div className="flex flex-wrap gap-2">
+        <Link className={subtleButtonClass} to="/admin/users">
+          Пользователи
+        </Link>
+        <Link className={subtleButtonClass} to="/admin/executors">
+          Исполнители
+        </Link>
+        <Link className={subtleButtonClass} to="/admin/orders">
+          Заказы
+        </Link>
+        <Link className={subtleButtonClass} to="/admin/catalogs">
+          Справочники
+        </Link>
+      </div>
+    </div>
+    <Outlet />
+  </div>
+);
+
+const NotFound = () => (
+  <div className={cardClass}>
+    <h2 className={sectionTitleClass}>Страница не найдена</h2>
+    <p className="text-sm text-slate-700">Проверьте адрес или вернитесь на главную.</p>
+    <Link className={subtleButtonClass + ' mt-2 inline-flex'} to="/">
+      На главную
+    </Link>
+  </div>
 );
 
 const App = () => {
-  const { user, token } = useAuth();
-  const [tab, setTab] = useState<TabKey>('auth');
-
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="container flex flex-col gap-2 py-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Smart BTI Test UI</h1>
-            <p className="text-sm text-slate-600">
-              Базовый URL API: <span className="font-mono">{API_URL}</span>
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-700">
-            <span className="rounded-full bg-slate-100 px-3 py-1">
-              {token ? user?.user.email || 'Авторизовано' : 'Не авторизован'}
-            </span>
-            {user?.isClient && <span className="rounded-full bg-emerald-100 px-3 py-1">Client</span>}
-            {user?.isExecutor && (
-              <span className="rounded-full bg-indigo-100 px-3 py-1">Executor</span>
-            )}
-            {user?.isAdmin && <span className="rounded-full bg-amber-100 px-3 py-1">Admin</span>}
-          </div>
-        </div>
-        <div className="container flex flex-wrap gap-2 pb-3">
-          {tabs.map((t) => (
-            <TabButton key={t.key} active={tab === t.key} label={t.label} onClick={() => setTab(t.key)} />
-          ))}
-        </div>
-      </header>
+    <BrowserRouter>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/auth" element={<AuthPage />} />
 
-      <main className="container py-6">
-        {tab === 'auth' && <AuthSection />}
-        {tab === 'client' && <ClientSection />}
-        {tab === 'executor' && <ExecutorSection />}
-        {tab === 'admin' && <AdminSection />}
-      </main>
-    </div>
+          <Route
+            path="/client"
+            element={
+              <RequireAuth>
+                <RequireRole roleKey="isClient">
+                  <ClientLayout />
+                </RequireRole>
+              </RequireAuth>
+            }
+          >
+            <Route index element={<Navigate to="services" replace />} />
+            <Route path="services" element={<ServiceCatalogPage />} />
+            <Route path="orders" element={<ClientOrdersPage />} />
+            <Route path="orders/new" element={<CreateOrderPage />} />
+            <Route path="orders/:orderId" element={<ClientOrderDetailsPage />} />
+          </Route>
+
+          <Route
+            path="/executor"
+            element={
+              <RequireAuth>
+                <RequireRole roleKey="isExecutor">
+                  <ExecutorLayout />
+                </RequireRole>
+              </RequireAuth>
+            }
+          >
+            <Route index element={<Navigate to="orders" replace />} />
+            <Route path="orders" element={<ExecutorOrdersPage />} />
+            <Route path="orders/:orderId" element={<ExecutorOrderDetailsPage />} />
+            <Route path="calendar" element={<ExecutorCalendarPage />} />
+          </Route>
+
+          <Route
+            path="/admin"
+            element={
+              <RequireAuth>
+                <RequireRole roleKey="isAdmin">
+                  <AdminLayout />
+                </RequireRole>
+              </RequireAuth>
+            }
+          >
+            <Route index element={<Navigate to="users" replace />} />
+            <Route path="users" element={<AdminUsersPage />} />
+            <Route path="executors" element={<AdminExecutorsPage />} />
+            <Route path="orders" element={<AdminOrdersPage />} />
+            <Route path="catalogs" element={<AdminCatalogsPage />} />
+          </Route>
+
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Layout>
+    </BrowserRouter>
   );
 };
 

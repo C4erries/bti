@@ -1031,12 +1031,6 @@ components:
         address:
           type: string
           nullable: true
-        city:
-          type: string
-          nullable: true
-        region:
-          type: string
-          nullable: true
         districtCode:
           type: string
           nullable: true
@@ -1057,12 +1051,6 @@ components:
           type: string
           nullable: true
         address:
-          type: string
-          nullable: true
-        city:
-          type: string
-          nullable: true
-        region:
           type: string
           nullable: true
         districtCode:
@@ -1296,9 +1284,6 @@ components:
           nullable: true
           enum: [LOW, MEDIUM, HIGH]
           description: Сложность заказа
-        city:
-          type: string
-          nullable: true
         address:
           type: string
           nullable: true

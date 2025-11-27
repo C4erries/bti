@@ -48,7 +48,6 @@ def list_executor_orders(
             totalPrice=o.total_price,
             createdAt=o.created_at,
             complexity=o.complexity,
-            city=o.city,
             address=o.address,
             departmentCode=o.current_department_code,
         )

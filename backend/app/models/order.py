@@ -56,8 +56,6 @@ class Order(Base):
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text)
     address: Mapped[str | None] = mapped_column(String(255))
-    city: Mapped[str | None] = mapped_column(String(255))
-    region: Mapped[str | None] = mapped_column(String(255))
     area: Mapped[float | None] = mapped_column(Float)
     complexity: Mapped[str | None] = mapped_column(String(20))
     status: Mapped[OrderStatus] = mapped_column(

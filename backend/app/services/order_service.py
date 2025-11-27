@@ -33,8 +33,6 @@ def create_order(db: Session, client: User, data: CreateOrderRequest) -> Order:
         title=data.title,
         description=data.description,
         address=data.address,
-        city=data.city,
-        region=data.region,
         status=OrderStatus.SUBMITTED,
         calculator_input=data.calculator_input or {},
     )
@@ -67,8 +65,6 @@ def update_order_by_client(db: Session, order: Order, data: UpdateOrderRequest) 
         "title",
         "description",
         "address",
-        "city",
-        "region",
         "district_code",
         "house_type_code",
         "calculator_input",
