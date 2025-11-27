@@ -7,28 +7,23 @@ from fastapi.staticfiles import StaticFiles
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.db.base import Base
+from app.db.init_data import init_data
 from app.db.session import engine
-# Импортируем все модели для правильной инициализации relationships
 from app.db.base import *  # noqa: F401, F403
 
 app = FastAPI(
-    title="EDU MAX",
-    description="EDU MAX | Backend",
-    version="3.0.0",
-    contact={
-        "name": "Dev",
-        "email": "insentodesu@icloud.com",
-    },
-    license_info={
-        "name": "MIT",
-    },
+    title="Умное БТИ",
+    description="MVP платформы для клиентов, исполнителей и администраторов",
+    version="0.1.0",
     swagger_ui_parameters={
         "docExpansion": "none",
         "defaultModelsExpandDepth": -1,
     },
 )
 
+# create tables and seed minimal data for development
 Base.metadata.create_all(bind=engine)
+init_data()
 
 app.include_router(api_router, prefix=settings.api_v1_prefix)
 
@@ -44,11 +39,12 @@ static_dir = Path(settings.static_root)
 static_dir.mkdir(parents=True, exist_ok=True)
 app.mount(settings.static_url, StaticFiles(directory=static_dir, check_dir=False), name="static")
 
+
 @app.get(
     "/health",
-    tags=["Служебные"],
+    tags=["system"],
     summary="Проверка состояния",
-    description="Проверка состояния сервиса",
+    description="Простая проверка готовности сервера",
 )
 def healthcheck():
     return {"status": "ok"}

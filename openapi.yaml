@@ -1,0 +1,1682 @@
+openapi: 3.0.3
+info:
+  title: Smart BTI API
+  version: 0.1.0
+  description: >
+    Хакатонный API для проекта "Умное БТИ".
+    Основные сущности: пользователи, заказы, файлы, AI-анализ, RAG, справочники.
+
+servers:
+  - url: http://localhost:8000/api/v1
+  - url: https://api.smart-bti.local
+
+tags:
+  - name: Auth
+  - name: Client
+  - name: Executor
+  - name: Admin
+  - name: Public
+  - name: AI
+
+paths:
+  ####################################################
+  # AUTH
+  ####################################################
+  /auth/register/client:
+    post:
+      tags: [Auth]
+      summary: Регистрация клиента
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterClientRequest'
+      responses:
+        '201':
+          description: Клиент зарегистрирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Логин, получение токена
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешная аутентификация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokenResponse'
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Текущий пользователь
+      responses:
+        '200':
+          description: Информация о текущем пользователе
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUserResponse'
+
+  ####################################################
+  # PUBLIC: services, districts, houseTypes
+  ####################################################
+  /services:
+    get:
+      tags: [Public]
+      summary: Каталог услуг
+      responses:
+        '200':
+          description: Список услуг
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Service'
+  /services/{serviceId}:
+    get:
+      tags: [Public]
+      summary: Детали услуги
+      parameters:
+        - in: path
+          name: serviceId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Услуга
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+
+  /districts:
+    get:
+      tags: [Public]
+      summary: Список округов
+      responses:
+        '200':
+          description: Округа
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/District'
+  /districts/{code}:
+    get:
+      tags: [Public]
+      summary: Округ по коду
+      parameters:
+        - in: path
+          name: code
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Округ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/District'
+
+  /house-types:
+    get:
+      tags: [Public]
+      summary: Список типов домов
+      responses:
+        '200':
+          description: Типы домов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HouseType'
+  /house-types/{code}:
+    get:
+      tags: [Public]
+      summary: Тип дома по коду
+      parameters:
+        - in: path
+          name: code
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Тип дома
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HouseType'
+
+  ####################################################
+  # CLIENT
+  ####################################################
+  /client/orders:
+    get:
+      tags: [Client]
+      summary: Список заказов клиента
+      responses:
+        '200':
+          description: Мои заказы
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+    post:
+      tags: [Client]
+      summary: Создать заказ
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Заказ создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+  /client/orders/{orderId}:
+    get:
+      tags: [Client]
+      summary: Детали заказа клиента
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Заказ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+    patch:
+      tags: [Client]
+      summary: Обновить заказ (например, пока DRAFT)
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOrderRequest'
+      responses:
+        '200':
+          description: Обновленный заказ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+  /orders/{orderId}/files:
+    post:
+      tags: [Client]
+      summary: Загрузить файл по заказу
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Файл загружен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderFile'
+    get:
+      tags: [Client]
+      summary: Список файлов заказа
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Файлы
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderFile'
+
+  /orders/{orderId}/files/{fileId}:
+    get:
+      tags: [Client]
+      summary: Скачать файл заказа
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: fileId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Файл
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  /orders/{orderId}/ai/messages:
+    post:
+      tags: [Client]
+      summary: Отправить сообщение в чат с AI
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessageCreate'
+      responses:
+        '200':
+          description: Сообщение пользователя и ответ AI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessagePairResponse'
+    get:
+      tags: [Client]
+      summary: История чата по заказу
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Сообщения чата
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderChatMessage'
+
+  /orders/{orderId}/chat:
+    post:
+      tags: [Client]
+      summary: Отправка сообщения в чат заказа
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessageCreate'
+      responses:
+        '200':
+          description: Ответ с сообщениями пользователя/AI (стаб)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessagePairResponse'
+    get:
+      tags: [Client]
+      summary: История сообщений чата
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Список сообщений
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderChatMessage'
+
+  /orders/{orderId}/ai/analyze:
+    post:
+      tags: [Client]
+      summary: Запустить AI-анализ перепланировки
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Итоговый анализ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiAnalysis'
+
+  /orders/{orderId}/ai/analysis:
+    get:
+      tags: [Client]
+      summary: Получить сохранённый результат AI-анализа
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Анализ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiAnalysis'
+
+  /orders/{orderId}/plan:
+    get:
+      tags: [Client]
+      summary: Получить план помещения (2D модель)
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: version
+          schema:
+            type: string
+            enum: [original, modified]
+      responses:
+        '200':
+          description: План помещения
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPlanVersion'
+  /orders/{orderId}/plan/changes:
+    post:
+      tags: [Client]
+      summary: Сохранить изменения плана (geometry JSON)
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavePlanChangesRequest'
+      responses:
+        '200':
+          description: Обновлённый план
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPlanVersion'
+
+  /client/chats:
+    get:
+      tags: [Client]
+      summary: ������?�?�� ����� ��'��
+      responses:
+        '200':
+          description: ������< �����'��
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClientChatThread'
+    post:
+      tags: [Client]
+      summary: ��������� ��'��
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChatRequest'
+      responses:
+        '201':
+          description: ����� ��'��
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientChatThread'
+
+  /chats/{chatId}/messages:
+    get:
+      tags: [Client]
+      summary: ������?�?�� �ؐ��'�� ��'��
+      parameters:
+        - in: path
+          name: chatId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: ������< ��������� � ��'��
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderChatMessage'
+    post:
+      tags: [Client]
+      summary: ��������� ��������� � ��'��
+      parameters:
+        - in: path
+          name: chatId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessageCreate'
+      responses:
+        '200':
+          description: ��������� ��������� � ����� AI (stub)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessagePairResponse'
+
+  ####################################################
+  # EXECUTOR
+  ####################################################
+  /executor/orders:
+    get:
+      tags: [Executor]
+      summary: Список заказов исполнителя (панель управления)
+      description: >
+        Возвращает заказы, доступные исполнителю, с возможностью фильтрации по статусу и отделу.
+        По умолчанию отсортированы от старых к новым (createdAt ASC).
+      parameters:
+        - in: query
+          name: status
+          description: Фильтр по статусу заказа
+          schema:
+            type: string
+            enum: [NEW, IN_PROGRESS, DONE]
+        - in: query
+          name: departmentCode
+          description: Фильтр по отделу (LEGAL, MASTERS, SUPPORT и т.п.)
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Заказы исполнителя для таблицы («панель управления»)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExecutorOrderListItem'
+
+  /executor/orders/{orderId}:
+    get:
+      tags: [Executor]
+      summary: Страница заказа для исполнителя («Подробнее»)
+      description: >
+        Возвращает общий контекст заказа: общая информация, стоимость, статус,
+        отдел, ссылки на файлы, план и историю статусов.
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Детали заказа для исполнителя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutorOrderDetails'
+
+
+  /executor/orders/{orderId}/files:
+    get:
+      tags: [Executor]
+      summary: Файлы заказа для исполнителя
+      description: >
+        Доступ к загруженным клиентом документам и сформированным файлам по заказу.
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Файлы заказа
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderFile'
+
+  /executor/calendar:
+    get:
+      tags: [Executor]
+      summary: Календарь выездов исполнителя
+      description: >
+        Только просмотр календаря выездов для текущего исполнителя.
+      responses:
+        '200':
+          description: События календаря исполнителя
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExecutorCalendarEvent'
+
+  /executor/orders/{orderId}/available-slots:
+    get:
+      tags: [Executor]
+      summary: Доступные слоты для выезда по заказу
+      description: >
+        Возвращает список доступных временных ячеек для выезда по этому заказу
+        для текущего исполнителя. Фронт сначала выбирает дату, затем показывает
+        доступные слоты в этот день/диапазон.
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: dateFrom
+          description: Дата начала диапазона (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: dateTo
+          description: Дата конца диапазона (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Доступные временные слоты для бронирования
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AvailableSlot'
+
+  /executor/orders/{orderId}/schedule-visit:
+    post:
+      tags: [Executor]
+      summary: Забронировать выезд по заказу в выбранный слот
+      description: >
+        Исполнитель выбирает один из доступных слотов и бронирует выезд по заказу.
+        Создаётся событие в календаре исполнителя и обновляется plannedVisitAt у заказа.
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExecutorScheduleVisitRequest'
+      responses:
+        '200':
+          description: Выезд успешно забронирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutorCalendarEvent'
+        '409':
+          description: Слот уже занят или недоступен
+
+  ####################################################
+  # ADMIN (сокращённый набор)
+  ####################################################
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: Список пользователей
+      responses:
+        '200':
+          description: Пользователи
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+  /admin/users/{userId}:
+    get:
+      tags: [Admin]
+      summary: Детали пользователя
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Пользователь
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    patch:
+      tags: [Admin]
+      summary: Обновить пользователя (например, is_admin)
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Обновленный пользователь
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+                
+  /admin/executors:
+    post:
+      tags: [Admin]
+      summary: Создать исполнителя (пользователь + профиль исполнителя)
+      description: >
+        Создаёт нового пользователя с ролью исполнителя: user + запись в executor_profile.
+        Используется только админом. Исполнитель потом входит через обычный /auth/login.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCreateExecutorRequest'
+      responses:
+        '201':
+          description: Исполнитель успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutorDetails'
+        '400':
+          description: Невалидные данные
+        '409':
+          description: Пользователь с таким email уже существует
+
+
+  /admin/orders:
+    get:
+      tags: [Admin]
+      summary: Список заказов (админ)
+      responses:
+        '200':
+          description: Заказы
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+  /admin/orders/{orderId}:
+    get:
+      tags: [Admin]
+      summary: Детали заказа (полный контекст)
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Заказ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+    patch:
+      tags: [Admin]
+      summary: Изменить заказ (статус, отдел и т.п.)
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUpdateOrderRequest'
+      responses:
+        '200':
+          description: Обновленный заказ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+  /admin/orders/{orderId}/assign-executor:
+    post:
+      tags: [Admin]
+      summary: Назначить исполнителя на заказ
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignExecutorRequest'
+      responses:
+        '200':
+          description: Назначение исполнителя создано
+
+  /admin/orders/{orderId}/schedule-visit:
+    post:
+      tags: [Admin]
+      summary: Запланировать выезд по заказу
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleVisitRequest'
+      responses:
+        '200':
+          description: Выезд запланирован
+    patch:
+      tags: [Admin]
+      summary: Обновить / перенести / отменить выезд по заказу
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleVisitUpdateRequest'
+      responses:
+        '200':
+          description: Выезд обновлён
+
+  ####################################################
+  # COMPONENTS
+  ####################################################
+components:
+  schemas:
+    ############################################
+    # AUTH
+    ############################################
+    RegisterClientRequest:
+      type: object
+      required: [email, password, fullName]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        fullName:
+          type: string
+        phone:
+          type: string
+          nullable: true
+
+    RegisterExecutorRequest:
+      type: object
+      required: [email, password, fullName]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        fullName:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        departmentCode:
+          type: string
+          nullable: true
+        experienceYears:
+          type: integer
+          nullable: true
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthTokenResponse:
+      type: object
+      required: [accessToken]
+      properties:
+        accessToken:
+          type: string
+        tokenType:
+          type: string
+          example: Bearer
+
+    CurrentUserResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        isClient:
+          type: boolean
+        isExecutor:
+          type: boolean
+        isAdmin:
+          type: boolean
+
+    ############################################
+    # CORE ENTITIES
+    ############################################
+    User:
+      type: object
+      required: [id, email, fullName, isAdmin]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        isAdmin:
+          type: boolean
+
+    Service:
+      type: object
+      required: [code, title]
+      properties:
+        code:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        departmentCode:
+          type: string
+          nullable: true
+        basePrice:
+          type: number
+          nullable: true
+        baseDurationDays:
+          type: integer
+          nullable: true
+        requiredDocs:
+          type: object
+          additionalProperties: true
+          nullable: true
+        isActive:
+          type: boolean
+
+    Order:
+      type: object
+      required: [id, clientId, serviceCode, status, title, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        clientId:
+          type: string
+          format: uuid
+        serviceCode:
+          type: integer
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - SUBMITTED
+            - EXECUTOR_ASSIGNED
+            - VISIT_SCHEDULED
+            - DOCUMENTS_IN_PROGRESS
+            - COMPLETED
+            - CANCELLED
+            - REJECTED
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        districtCode:
+          type: string
+          nullable: true
+        houseTypeCode:
+          type: string
+          nullable: true
+        complexity:
+          type: string
+          nullable: true
+          enum: [LOW, MEDIUM, HIGH]
+        calculatorInput:
+          type: object
+          additionalProperties: true
+          nullable: true
+        estimatedPrice:
+          type: number
+          nullable: true
+        totalPrice:
+          type: number
+          nullable: true
+        currentDepartmentCode:
+          type: string
+          nullable: true
+        aiDecisionStatus:
+          type: string
+          nullable: true
+          enum: [UNKNOWN, ALLOWED, FORBIDDEN, NEEDS_APPROVAL]
+        aiDecisionSummary:
+          type: string
+          nullable: true
+        plannedVisitAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateOrderRequest:
+      type: object
+      required: [serviceCode, title]
+      properties:
+        serviceCode:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        districtCode:
+          type: string
+          nullable: true
+        houseTypeCode:
+          type: string
+          nullable: true
+        calculatorInput:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    UpdateOrderRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        districtCode:
+          type: string
+          nullable: true
+        houseTypeCode:
+          type: string
+          nullable: true
+        calculatorInput:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    AdminUpdateOrderRequest:
+      type: object
+      properties:
+        status:
+          type: string
+        currentDepartmentCode:
+          type: string
+          nullable: true
+        estimatedPrice:
+          type: number
+          nullable: true
+        totalPrice:
+          type: number
+          nullable: true
+
+    OrderFile:
+      type: object
+      required: [id, orderId, filename, path]
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+        senderId:
+          type: string
+          format: uuid
+          nullable: true
+        filename:
+          type: string
+        path:
+          type: string
+
+    OrderChatMessage:
+      type: object
+      required: [id, chatId, messageText, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        chatId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+          nullable: true
+        senderId:
+          type: string
+          format: uuid
+          nullable: true
+        senderType:
+          type: string
+          enum: [CLIENT, EXECUTOR, AI, ADMIN]
+        messageText:
+          type: string
+        meta:
+          type: object
+          additionalProperties: true
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    ChatMessageCreate:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    ChatMessagePairResponse:
+      type: object
+      properties:
+        userMessage:
+          $ref: '#/components/schemas/OrderChatMessage'
+        aiMessage:
+          $ref: '#/components/schemas/OrderChatMessage'
+
+    ClientChatThread:
+      type: object
+      properties:
+        chatId:
+          type: string
+          format: uuid
+        serviceCode:
+          type: integer
+          nullable: true
+        serviceTitle:
+          type: string
+          nullable: true
+        orderId:
+          type: string
+          format: uuid
+          nullable: true
+        orderStatus:
+          type: string
+          nullable: true
+        lastMessageText:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateChatRequest:
+      type: object
+      required: [serviceCode]
+      properties:
+        serviceCode:
+          type: integer
+        title:
+          type: string
+          nullable: true
+        orderId:
+          type: string
+          format: uuid
+          nullable: true
+        firstMessage:
+          type: string
+          nullable: true
+
+    OrderPlanVersion:
+      type: object
+      required: [id, orderId, versionType, plan]
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+        versionType:
+          type: string
+          enum: [ORIGINAL, MODIFIED]
+        plan:
+          type: object
+          additionalProperties: true
+
+    SavePlanChangesRequest:
+      type: object
+      required: [versionType, plan]
+      properties:
+        versionType:
+          type: string
+          enum: [ORIGINAL, MODIFIED]
+        plan:
+          type: object
+          additionalProperties: true
+
+    AiAnalysis:
+      type: object
+      required: [id, orderId, decisionStatus]
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+        decisionStatus:
+          type: string
+          enum: [ALLOWED, FORBIDDEN, NEEDS_APPROVAL, UNKNOWN]
+        summary:
+          type: string
+          nullable: true
+        risks:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AiRisk'
+        legalWarnings:
+          type: string
+          nullable: true
+        financialWarnings:
+          type: string
+          nullable: true
+        rawResponse:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    AiRisk:
+      type: object
+      required: [type, description]
+      properties:
+        type:
+          type: string
+          enum: [TECHNICAL, LEGAL, FINANCIAL, OPERATIONAL]
+        description:
+          type: string
+        severity:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        zone:
+          type: string
+          nullable: true
+    AvailableSlot:
+      type: object
+      description: >
+        Доступная временная ячейка для выезда. Показывается исполнителю в интерфейсе бронирования.
+      required: [startTime, endTime]
+      properties:
+        startTime:
+          type: string
+          format: date-time
+          description: Начало слота
+        endTime:
+          type: string
+          format: date-time
+          description: Конец слота
+        isAvailable:
+          type: boolean
+          description: Флаг доступности слота (обычно true, но оставляем на будущее)
+          default: true
+
+    ExecutorScheduleVisitRequest:
+      type: object
+      description: >
+        Запрос от исполнителя на бронь выезда в выбранный слот.
+        Бэкенд должен проверить, что этот слот входит в /available-slots.
+      required: [startTime, endTime]
+      properties:
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        location:
+          type: string
+          nullable: true
+          description: >
+            Локация выезда (по умолчанию можно взять адрес заказа, фронт может не отправлять).
+    ExecutorOrderListItem:
+      type: object
+      description: >
+        Упрощённое представление заказа для таблицы в кабинете исполнителя.
+        Соответствует колонкам: ID заказа, статус, услуга, стоимость, дата создания.
+      required: [id, status, serviceTitle, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: ID заказа
+        status:
+          type: string
+          description: Текущий статус заказа
+        serviceTitle:
+          type: string
+          description: Название услуги
+        totalPrice:
+          type: number
+          nullable: true
+          description: Стоимость услуг (итоговая или рассчитанная)
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата создания заказа
+        complexity:
+          type: string
+          nullable: true
+          enum: [LOW, MEDIUM, HIGH]
+          description: Сложность заказа
+        address:
+          type: string
+          nullable: true
+        departmentCode:
+          type: string
+          nullable: true
+          description: Отдел, к которому относится заказ (LEGAL, MASTERS, SUPPORT)
+
+    ExecutorOrderDetails:
+      type: object
+      description: >
+        Полный контекст заказа на странице исполнителя: общая инфа, документы, визуализация, история.
+      properties:
+        order:
+          $ref: '#/components/schemas/Order'
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderFile'
+        planOriginal:
+          $ref: '#/components/schemas/OrderPlanVersion'
+        planModified:
+          $ref: '#/components/schemas/OrderPlanVersion'
+        statusHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderStatusHistoryItem'
+        client:
+          $ref: '#/components/schemas/User'
+        executorAssignment:
+          type: object
+          nullable: true
+          properties:
+            executorId:
+              type: string
+              format: uuid
+            status:
+              type: string
+              enum: [ASSIGNED, ACCEPTED, DECLINED, COMPLETED]
+            assignedAt:
+              type: string
+              format: date-time
+            assignedByUserId:
+              type: string
+              format: uuid
+              nullable: true
+
+    OrderStatusHistoryItem:
+      type: object
+      description: Запись об изменении статуса заказа
+      required: [status, changedAt]
+      properties:
+        oldStatus:
+          type: string
+          nullable: true
+        status:
+          type: string
+          description: Новый статус
+        changedByUserId:
+          type: string
+          format: uuid
+          nullable: true
+        changedAt:
+          type: string
+          format: date-time
+        comment:
+          type: string
+          nullable: true
+
+    ExecutorCalendarEvent:
+      type: object
+      required: [id, executorId, startTime, endTime]
+      properties:
+        id:
+          type: string
+          format: uuid
+        executorId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        location:
+          type: string
+          nullable: true
+        status:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    AssignExecutorRequest:
+      type: object
+      required: [executorId]
+      properties:
+        executorId:
+          type: string
+          format: uuid
+
+    ScheduleVisitRequest:
+      type: object
+      required: [executorId, startTime, endTime, location]
+      properties:
+        executorId:
+          type: string
+          format: uuid
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        location:
+          type: string
+
+    ScheduleVisitUpdateRequest:
+      type: object
+      properties:
+        executorId:
+          type: string
+          format: uuid
+          nullable: true
+        startTime:
+          type: string
+          format: date-time
+          nullable: true
+        endTime:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          nullable: true
+
+    District:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        priceCoef:
+          type: number
+          nullable: true
+
+    HouseType:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        priceCoef:
+          type: number
+          nullable: true
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        isAdmin:
+          type: boolean
+          
+    AdminCreateExecutorRequest:
+      type: object
+      required: [email, password, fullName]
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email исполнителя (для логина)
+        password:
+          type: string
+          description: Пароль для входа исполнителя
+        fullName:
+          type: string
+          description: ФИО исполнителя
+        phone:
+          type: string
+          nullable: true
+        departmentCode:
+          type: string
+          nullable: true
+          description: Код отдела, к которому относится исполнитель (например, MASTERS)
+        experienceYears:
+          type: integer
+          nullable: true
+          description: Стаж исполнителя в годах
+        isAdmin:
+          type: boolean
+          nullable: true
+          description: >
+            Сделать ли пользователя админом. Для обычных исполнителей — false или не передавать.
+
+    ExecutorDetails:
+      type: object
+      description: Информация об исполнителе, возвращаемая после создания админом
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        executorProfile:
+          type: object
+          nullable: true
+          properties:
+            departmentCode:
+              type: string
+              nullable: true
+            experienceYears:
+              type: integer
+              nullable: true
