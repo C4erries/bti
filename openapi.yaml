@@ -7,6 +7,7 @@ info:
     Основные сущности: пользователи, заказы, файлы, AI-анализ, RAG, справочники.
 
 servers:
+  - url: http://localhost:8000/api/v1
   - url: https://api.smart-bti.local
 
 tags:
@@ -1529,4 +1530,3 @@ components:
             experienceYears:
               type: integer
               nullable: true
-
