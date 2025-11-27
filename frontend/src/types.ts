@@ -160,6 +160,15 @@ export interface AiAnalysis {
   createdAt?: string | null;
 }
 
+export interface ClientChatThread {
+  id: string; // equals orderId
+  serviceCode: number;
+  serviceTitle: string;
+  orderStatus?: string;
+  lastMessageText?: string | null;
+  updatedAt: string;
+}
+
 export interface Department {
   code: string;
   name?: string | null;

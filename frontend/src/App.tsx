@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Outlet, Link, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, Navigate, Outlet } from 'react-router-dom';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import AuthPage from './pages/AuthPage';
@@ -6,6 +6,8 @@ import ServiceCatalogPage from './pages/client/ServiceCatalogPage';
 import CreateOrderPage from './pages/client/CreateOrderPage';
 import ClientOrdersPage from './pages/client/OrdersPage';
 import ClientOrderDetailsPage from './pages/client/OrderDetailsPage';
+import ClientChatPage from './pages/client/ClientChatPage';
+import ClientChatLandingPage from './pages/client/ClientChatLandingPage';
 import ExecutorOrdersPage from './pages/executor/ExecutorOrdersPage';
 import ExecutorOrderDetailsPage from './pages/executor/ExecutorOrderDetailsPage';
 import ExecutorCalendarPage from './pages/executor/ExecutorCalendarPage';
@@ -15,25 +17,7 @@ import AdminOrdersPage from './pages/admin/AdminOrdersPage';
 import AdminCatalogsPage from './pages/admin/AdminCatalogsPage';
 import { RequireAuth, RequireRole } from './components/Protected';
 import { cardClass, sectionTitleClass, subtleButtonClass } from './components/ui';
-
-const ClientLayout = () => (
-  <div className="space-y-3">
-    <div className={cardClass}>
-      <div className="flex flex-wrap gap-2">
-        <Link className={subtleButtonClass} to="/client/services">
-          Каталог услуг
-        </Link>
-        <Link className={subtleButtonClass} to="/client/orders">
-          Мои заказы
-        </Link>
-        <Link className={subtleButtonClass} to="/client/orders/new">
-          Создать заказ
-        </Link>
-      </div>
-    </div>
-    <Outlet />
-  </div>
-);
+import ClientChatShell from './layouts/ClientChatShell';
 
 const ExecutorLayout = () => (
   <div className="space-y-3">
@@ -43,7 +27,10 @@ const ExecutorLayout = () => (
           Заказы
         </Link>
         <Link className={subtleButtonClass} to="/executor/calendar">
-          Календарь
+          Календарь заказов
+        </Link>
+        <Link className={subtleButtonClass} to="/executor/tools">
+          Инструменты
         </Link>
       </div>
     </div>
@@ -96,16 +83,17 @@ const App = () => {
             element={
               <RequireAuth>
                 <RequireRole roleKey="isClient">
-                  <ClientLayout />
+                  <ClientChatShell />
                 </RequireRole>
               </RequireAuth>
             }
           >
-            <Route index element={<Navigate to="services" replace />} />
+            <Route index element={<ClientChatLandingPage />} />
             <Route path="services" element={<ServiceCatalogPage />} />
             <Route path="orders" element={<ClientOrdersPage />} />
             <Route path="orders/new" element={<CreateOrderPage />} />
             <Route path="orders/:orderId" element={<ClientOrderDetailsPage />} />
+            <Route path="chat/:chatId" element={<ClientChatPage />} />
           </Route>
 
           <Route
@@ -118,10 +106,11 @@ const App = () => {
               </RequireAuth>
             }
           >
-            <Route index element={<Navigate to="orders" replace />} />
+            <Route index element={<Navigate to="/executor/orders" replace />} />
             <Route path="orders" element={<ExecutorOrdersPage />} />
             <Route path="orders/:orderId" element={<ExecutorOrderDetailsPage />} />
             <Route path="calendar" element={<ExecutorCalendarPage />} />
+            <Route path="tools" element={<div className={cardClass}>Инструменты (скоро)</div>} />
           </Route>
 
           <Route
@@ -134,7 +123,7 @@ const App = () => {
               </RequireAuth>
             }
           >
-            <Route index element={<Navigate to="users" replace />} />
+            <Route index element={<Navigate to="/admin/users" replace />} />
             <Route path="users" element={<AdminUsersPage />} />
             <Route path="executors" element={<AdminExecutorsPage />} />
             <Route path="orders" element={<AdminOrdersPage />} />

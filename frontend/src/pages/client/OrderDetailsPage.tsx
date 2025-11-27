@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { apiFetch } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -194,6 +194,11 @@ const ClientOrderDetailsPage = () => {
                 {key === 'chat' && 'Чат (AI)'}
               </button>
             ))}
+            {orderId && (
+              <Link className={subtleButtonClass} to={`/client/chat/${orderId}`}>
+                Открыть в чате
+              </Link>
+            )}
           </div>
         </div>
         {message && <p className="mt-2 text-sm text-red-600">{message}</p>}

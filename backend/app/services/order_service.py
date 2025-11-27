@@ -17,6 +17,8 @@ from app.models.order import (
     OrderStatusHistory,
 )
 from app.models.user import User
+from app.models.directory import Service
+from app.schemas.chat import CreateChatRequest
 from app.schemas.orders import CreateOrderRequest, UpdateOrderRequest, SavePlanChangesRequest
 from app.services import user_service
 from app.services.user_service import ensure_client_profile
@@ -171,6 +173,60 @@ def get_executor_orders(
     if department_code:
         query = query.where(Order.current_department_code == department_code)
     return list(db.scalars(query))
+
+
+def get_client_chat_threads(db: Session, client_id: uuid.UUID) -> list[dict]:
+    orders = db.scalars(select(Order).where(Order.client_id == client_id)).all()
+    threads: list[dict] = []
+    for order in orders:
+        last_msg = (
+            db.scalar(
+                select(OrderChatMessage)
+                .where(OrderChatMessage.order_id == order.id)
+                .order_by(OrderChatMessage.created_at.desc())
+            )
+            if order.chat_messages
+            else None
+        )
+        threads.append(
+            {
+                "id": order.id,
+                "service_code": order.service_code,
+                "service_title": order.service.title if order.service else None,
+                "order_status": order.status.value if hasattr(order.status, "value") else str(order.status),
+                "last_message_text": last_msg.message_text if last_msg else None,
+                "updated_at": last_msg.created_at if last_msg else order.updated_at or order.created_at,
+            }
+        )
+    return threads
+
+
+def create_chat_order(db: Session, client: User, payload: CreateChatRequest) -> Order:
+    title = payload.title
+    # fetch service title if exists
+    service_obj = db.get(Service, payload.service_code) if "Service" in globals() else None  # type: ignore[name-defined]
+    if not title:
+        title = f"Помощь по услуге {service_obj.title}" if service_obj else "Чат с поддержкой"
+    order = Order(
+        client_id=client.id,
+        service_code=payload.service_code,
+        title=title,
+        status=OrderStatus.DRAFT,
+        calculator_input={"mode": "CHAT_ONLY"},
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    if payload.first_message_text:
+        msg = OrderChatMessage(
+            order_id=order.id,
+            sender_id=client.id,
+            sender_type="CLIENT",
+            message_text=payload.first_message_text,
+        )
+        db.add(msg)
+        db.commit()
+    return order
 
 
 def add_file(db: Session, order: Order, file: UploadFile, uploaded_by: User | None = None) -> OrderFile:

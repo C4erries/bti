@@ -20,6 +20,7 @@ from app.schemas.orders import (
     OrderChatMessage,
     AiAnalysis,
 )
+from app.schemas.chat import CreateChatRequest, ClientChatThread
 from app.models.order import OrderFile as OrderFileModel
 from app.core.config import settings
 from app.services import order_service
@@ -48,6 +49,34 @@ def create_order(
 ) -> Order:
     order = order_service.create_order(db, current_user, payload)
     return Order.model_validate(order)
+
+
+@router.get("/chats", response_model=list[ClientChatThread])
+def list_chats(
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+) -> list[ClientChatThread]:
+    threads = order_service.get_client_chat_threads(db, current_user.id)
+    return [ClientChatThread.model_validate(t) for t in threads]
+
+
+@router.post("/chats", response_model=ClientChatThread, status_code=201)
+def create_chat(
+    payload: CreateChatRequest,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+) -> ClientChatThread:
+    order = order_service.create_chat_order(db, current_user, payload)
+    thread = order_service.get_client_chat_threads(db, current_user.id)
+    thread_item = next((t for t in thread if t["id"] == order.id), None)
+    return ClientChatThread.model_validate(thread_item or {
+        "id": order.id,
+        "service_code": order.service_code,
+        "service_title": order.service.title if order.service else None,
+        "order_status": order.status.value,
+        "last_message_text": None,
+        "updated_at": order.created_at,
+    })
 
 
 @router.get("/orders/{order_id}", response_model=Order)
