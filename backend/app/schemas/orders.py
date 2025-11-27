@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
 from typing import Any
@@ -169,7 +171,7 @@ class ExecutorOrderDetails(BaseModel):
     plan_original: OrderPlanVersion | None = Field(default=None, alias="planOriginal")
     plan_modified: OrderPlanVersion | None = Field(default=None, alias="planModified")
     status_history: list[OrderStatusHistoryItem] = Field(default_factory=list, alias="statusHistory")
-    client: "User" | None = None
+    client: User | None = None
     executor_assignment: dict | None = Field(default=None, alias="executorAssignment")
 
     model_config = ConfigDict(populate_by_name=True)
@@ -218,6 +220,14 @@ class ScheduleVisitUpdateRequest(BaseModel):
     start_time: datetime | None = Field(default=None, alias="startTime")
     end_time: datetime | None = Field(default=None, alias="endTime")
     status: str | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class ExecutorScheduleVisitRequest(BaseModel):
+    start_time: datetime = Field(alias="startTime")
+    end_time: datetime = Field(alias="endTime")
+    location: str | None = None
 
     model_config = ConfigDict(populate_by_name=True)
 

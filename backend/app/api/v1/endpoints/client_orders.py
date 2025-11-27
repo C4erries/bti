@@ -2,6 +2,8 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
+from pathlib import Path
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db_session
@@ -18,6 +20,8 @@ from app.schemas.orders import (
     OrderChatMessage,
     AiAnalysis,
 )
+from app.models.order import OrderFile as OrderFileModel
+from app.core.config import settings
 from app.services import order_service
 
 router = APIRouter(prefix="/client", tags=["Client"])
@@ -119,7 +123,9 @@ def get_plan_versions(
         match = next((v for v in versions if v.version_type.lower() == version.lower()), None)
         if match:
             return OrderPlanVersion.model_validate(match)
-    return OrderPlanVersion.model_validate(versions[-1]) if versions else None
+    if not versions:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    return OrderPlanVersion.model_validate(versions[-1])
 
 
 @router.post("/orders/{order_id}/plan/changes", response_model=OrderPlanVersion)
@@ -200,6 +206,32 @@ def trigger_ai_analyze(
         rawResponse=None,
     )
     return analysis
+
+
+@router.get("/orders/{order_id}/files/{file_id}")
+def download_file(
+    order_id: uuid.UUID,
+    file_id: uuid.UUID,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+):
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    _ensure_ownership(order, current_user.id)
+    file = db.get(OrderFileModel, file_id)
+    if not file or file.order_id != order_id:
+        files = order_service.get_order_files(db, order_id)
+        file = next((f for f in files if f.id == file_id), None)
+    if not file:
+        raise HTTPException(status_code=404, detail="File not found")
+    # map stored path (/static/orders/..) to filesystem
+    relative = file.path.lstrip("/")
+    static_root = Path(settings.static_root)
+    fs_path = static_root / relative.split("/", 1)[1] if "/" in relative else static_root / relative
+    if not fs_path.exists():
+        raise HTTPException(status_code=404, detail="File content not found")
+    return FileResponse(path=fs_path, filename=file.filename)
 
 
 @router.get("/orders/{order_id}/ai/analysis", response_model=AiAnalysis)

@@ -41,8 +41,9 @@ def upsert_service(db: Session, data: ServiceCreate | ServiceUpdate, code: str |
     service = db.get(Service, svc_code) or Service(code=svc_code)
     if getattr(data, "title", None) is not None:
         service.title = data.title
-    if data.description is not None:
-        service.description = data.description
+    description = getattr(data, "description", None)
+    if description is not None:
+        service.description = description
     if hasattr(data, "base_price") and data.base_price is not None:
         service.base_price = data.base_price
     if hasattr(data, "department_code") and data.department_code is not None:
@@ -97,8 +98,9 @@ def upsert_house_type(db: Session, data: HouseTypeCreate | HouseTypeUpdate, code
     house_type = db.get(HouseType, house_code) or HouseType(code=house_code)
     if data.name is not None:
         house_type.name = data.name
-    if data.description is not None:
-        house_type.description = data.description
+    description = getattr(data, "description", None)
+    if description is not None:
+        house_type.description = description
     if hasattr(data, "price_coef") and data.price_coef is not None:
         house_type.price_coef = data.price_coef
     db.add(house_type)

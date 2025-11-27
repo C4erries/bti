@@ -11,8 +11,9 @@ from app.schemas.orders import (
     OrderFile,
     OrderStatusHistoryItem,
     AvailableSlot,
-    ScheduleVisitRequest,
+    ExecutorScheduleVisitRequest,
     ScheduleVisitUpdateRequest,
+    ExecutorCalendarEvent,
 )
 from app.services import order_service
 
@@ -32,9 +33,13 @@ def list_executor_orders(
     current_user=Depends(get_current_user),
 ) -> list[ExecutorOrderListItem]:
     _ensure_executor(current_user)
-    status_map = {"NEW": OrderStatus.SUBMITTED, "IN_PROGRESS": OrderStatus.DOCUMENTS_IN_PROGRESS, "DONE": OrderStatus.COMPLETED}
-    status_filter = status_map.get(status) if status else None
-    orders = order_service.get_executor_orders(db, current_user.id, status_filter, department_code)
+    status_map = {
+        "NEW": [OrderStatus.SUBMITTED, OrderStatus.EXECUTOR_ASSIGNED],
+        "IN_PROGRESS": [OrderStatus.VISIT_SCHEDULED, OrderStatus.DOCUMENTS_IN_PROGRESS],
+        "DONE": [OrderStatus.COMPLETED],
+    }
+    status_filters = status_map.get(status) if status else None
+    orders = order_service.get_executor_orders(db, current_user.id, status_filters, department_code)
     return [
         ExecutorOrderListItem(
             id=o.id,
@@ -61,14 +66,27 @@ def get_order(
     order = order_service.get_order(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    plan_original = next((p for p in order.plan_versions if p.version_type.upper() == "ORIGINAL"), None)
+    plan_modified = next((p for p in order.plan_versions if p.version_type.upper() == "MODIFIED"), None)
+    assignment = order.assignments[0] if order.assignments else None
+    executor_assignment = (
+        {
+            "executorId": assignment.executor_id,
+            "status": assignment.status.value if hasattr(assignment.status, "value") else assignment.status,
+            "assignedAt": assignment.assigned_at,
+            "assignedByUserId": assignment.assigned_by_id,
+        }
+        if assignment
+        else None
+    )
     return ExecutorOrderDetails(
         order=order,
         files=[OrderFile.model_validate(f) for f in order.files],
-        planOriginal=None,
-        planModified=None,
+        planOriginal=plan_original,
+        planModified=plan_modified,
         statusHistory=[OrderStatusHistoryItem.model_validate(h) for h in order.status_history],
         client=order.client,
-        executorAssignment=None,
+        executorAssignment=executor_assignment,
     )
 
 
@@ -137,10 +155,10 @@ def available_slots(
     return []
 
 
-@router.post("/orders/{order_id}/schedule-visit")
+@router.post("/orders/{order_id}/schedule-visit", response_model=ExecutorCalendarEvent)
 def schedule_visit(
     order_id: uuid.UUID,
-    payload: ScheduleVisitRequest,
+    payload: ExecutorScheduleVisitRequest,
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
 ):
@@ -148,13 +166,18 @@ def schedule_visit(
     order = order_service.get_order(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    order.planned_visit_at = payload.start_time
-    db.add(order)
-    db.commit()
-    return {"status": "ok"}
+    event = order_service.schedule_visit(
+        db,
+        order,
+        executor_id=current_user.id,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        location=payload.location,
+    )
+    return ExecutorCalendarEvent.model_validate(event)
 
 
-@router.patch("/orders/{order_id}/schedule-visit")
+@router.patch("/orders/{order_id}/schedule-visit", response_model=ExecutorCalendarEvent)
 def update_visit(
     order_id: uuid.UUID,
     payload: ScheduleVisitUpdateRequest,
@@ -165,8 +188,12 @@ def update_visit(
     order = order_service.get_order(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    if payload.start_time:
-        order.planned_visit_at = payload.start_time
-    db.add(order)
-    db.commit()
-    return {"status": "ok"}
+    event = order_service.update_visit(
+        db,
+        order,
+        executor_id=current_user.id,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        status_value=payload.status,
+    )
+    return ExecutorCalendarEvent.model_validate(event)

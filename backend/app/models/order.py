@@ -79,7 +79,9 @@ class Order(Base):
 
     client: Mapped["User"] = relationship("User", back_populates="client_orders", foreign_keys=[client_id])
     service: Mapped["Service"] = relationship("Service", back_populates="orders")
-    department: Mapped["Department"] = relationship("Department")
+    department: Mapped["Department"] = relationship(
+        "Department", foreign_keys=[current_department_code]
+    )
     district: Mapped["District"] = relationship("District", back_populates="orders")
     house_type: Mapped["HouseType"] = relationship("HouseType", back_populates="orders")
     status_history: Mapped[list["OrderStatusHistory"]] = relationship(

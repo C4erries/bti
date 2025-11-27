@@ -18,6 +18,7 @@ from app.models.order import (
 )
 from app.models.user import User
 from app.schemas.orders import CreateOrderRequest, UpdateOrderRequest, SavePlanChangesRequest
+from app.services import user_service
 from app.services.user_service import ensure_client_profile
 
 
@@ -113,7 +114,7 @@ def assign_executor(
         status=AssignmentStatus.ASSIGNED,
     )
     if executor.executor_profile and executor.executor_profile.department_code:
-        order.department_code = order.department_code or executor.executor_profile.department_code
+        order.current_department_code = order.current_department_code or executor.executor_profile.department_code
     db.add(assignment)
     add_status_history(db, order, OrderStatus.EXECUTOR_ASSIGNED, assigned_by)
     db.refresh(assignment)
@@ -156,7 +157,7 @@ def executor_decline_order(db: Session, order: Order, executor: User) -> Executo
 
 
 def get_executor_orders(
-    db: Session, executor_id: uuid.UUID, status_filter: OrderStatus | None = None, department_code: str | None = None
+    db: Session, executor_id: uuid.UUID, status_filter: list[OrderStatus] | OrderStatus | None = None, department_code: str | None = None
 ) -> list[Order]:
     query = (
         select(Order)
@@ -167,9 +168,12 @@ def get_executor_orders(
         )
     )
     if status_filter:
-        query = query.where(Order.status == status_filter)
+        if isinstance(status_filter, list):
+            query = query.where(Order.status.in_(status_filter))
+        else:
+            query = query.where(Order.status == status_filter)
     if department_code:
-        query = query.where(Order.department_code == department_code)
+        query = query.where(Order.current_department_code == department_code)
     return list(db.scalars(query))
 
 
@@ -199,13 +203,24 @@ def get_order_files(db: Session, order_id: uuid.UUID) -> list[OrderFile]:
 def add_plan_version(
     db: Session, order: Order, payload: SavePlanChangesRequest
 ) -> OrderPlanVersion:
-    plan = OrderPlanVersion(
-        order_id=order.id,
-        version_type=payload.version_type,
-        plan=payload.plan,
-        is_applied=True,
+    existing = db.scalar(
+        select(OrderPlanVersion).where(
+            OrderPlanVersion.order_id == order.id,
+            OrderPlanVersion.version_type == payload.version_type,
+        )
     )
-    db.add(plan)
+    if existing:
+        existing.plan = payload.plan
+        db.add(existing)
+        plan = existing
+    else:
+        plan = OrderPlanVersion(
+            order_id=order.id,
+            version_type=payload.version_type,
+            plan=payload.plan,
+            is_applied=True,
+        )
+        db.add(plan)
     db.commit()
     db.refresh(plan)
     return plan
@@ -251,6 +266,74 @@ def create_calendar_event(
     db.add(event)
     db.commit()
     db.refresh(event)
+    return event
+
+
+def schedule_visit(
+    db: Session,
+    order: Order,
+    executor_id: uuid.UUID,
+    start_time,
+    end_time,
+    location: str | None = None,
+) -> ExecutorCalendarEvent:
+    executor = user_service.get_user_by_id(db, executor_id)
+    if not executor or not executor.executor_profile:
+        raise HTTPException(status_code=404, detail="Executor not found")
+    order.planned_visit_at = start_time
+    add_status_history(db, order, OrderStatus.VISIT_SCHEDULED, executor)
+    db.add(order)
+    event = create_calendar_event(
+        db,
+        executor_id=executor_id,
+        order_id=order.id,
+        start_time=start_time,
+        end_time=end_time,
+        location=location,
+        notes=None,
+    )
+    return event
+
+
+def update_visit(
+    db: Session,
+    order: Order,
+    executor_id: uuid.UUID | None,
+    start_time,
+    end_time,
+    status_value: str | None = None,
+) -> ExecutorCalendarEvent | None:
+    exec_id = executor_id
+    if exec_id:
+        executor = user_service.get_user_by_id(db, exec_id)
+        if not executor or not executor.executor_profile:
+            raise HTTPException(status_code=404, detail="Executor not found")
+    else:
+        assignment = db.scalar(
+            select(ExecutorAssignment)
+            .where(ExecutorAssignment.order_id == order.id)
+            .order_by(ExecutorAssignment.assigned_at.desc())
+        )
+        exec_id = assignment.executor_id if assignment else None
+    if exec_id is None:
+        raise HTTPException(status_code=400, detail="Executor is required for visit")
+    order.planned_visit_at = start_time or order.planned_visit_at
+    db.add(order)
+    event = create_calendar_event(
+        db,
+        executor_id=exec_id or order.client_id,
+        order_id=order.id,
+        start_time=start_time or order.planned_visit_at,
+        end_time=end_time or start_time or order.planned_visit_at,
+        location=None,
+        notes=None,
+    )
+    if status_value:
+        try:
+            new_status = OrderStatus(status_value)
+            add_status_history(db, order, new_status, None)
+        except ValueError:
+            pass
     return event
 
 

@@ -12,7 +12,7 @@ from app.schemas.user import (
 )
 from app.services import executor_service, user_service
 
-router = APIRouter(prefix="/admin", tags=["admin-users"])
+router = APIRouter(prefix="/admin", tags=["Admin"])
 
 
 @router.post("/executors", response_model=ExecutorDetails, summary="Создать исполнителя")

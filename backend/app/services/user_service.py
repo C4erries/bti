@@ -53,14 +53,14 @@ def create_executor(db: Session, data: ExecutorCreateRequest) -> User:
             password=data.password,
             full_name=data.full_name,
             phone=data.phone,
-            is_admin=False,
+            is_admin=data.is_admin if hasattr(data, "is_admin") and data.is_admin is not None else False,
         ),
     )
     profile = ExecutorProfile(
         user_id=user.id,
         department_code=data.department_code,
         experience_years=data.experience_years,
-        specialization=data.specialization,
+        specialization=getattr(data, "specialization", None),
     )
     db.add(profile)
     db.commit()

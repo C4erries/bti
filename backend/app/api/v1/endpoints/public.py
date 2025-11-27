@@ -9,7 +9,7 @@ from app.schemas.directory import (
 )
 from app.services import directory_service
 
-router = APIRouter(tags=["public"])
+router = APIRouter(tags=["Public"])
 
 
 @router.get("/services", response_model=list[ServiceRead])

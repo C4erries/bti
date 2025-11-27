@@ -4,8 +4,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin, get_db_session
-from app.schemas.orders import AdminUpdateOrderRequest, Order
-from app.services import order_service
+from app.schemas.orders import (
+    AdminUpdateOrderRequest,
+    AssignExecutorRequest,
+    Order,
+    ScheduleVisitRequest,
+    ScheduleVisitUpdateRequest,
+    ExecutorCalendarEvent,
+)
+from app.services import order_service, user_service
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -53,3 +60,63 @@ def update_order(
     db.commit()
     db.refresh(order)
     return Order.model_validate(order)
+
+
+@router.post("/orders/{order_id}/assign-executor", tags=["Admin"])
+def assign_executor(
+    order_id: uuid.UUID,
+    payload: AssignExecutorRequest,
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
+):
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    executor = user_service.get_user_by_id(db, payload.executor_id)
+    if not executor or not executor.executor_profile:
+        raise HTTPException(status_code=404, detail="Executor not found")
+    order_service.assign_executor(db, order, executor, assigned_by=admin)
+    db.refresh(order)
+    return Order.model_validate(order)
+
+
+@router.post("/orders/{order_id}/schedule-visit", tags=["Admin"], response_model=ExecutorCalendarEvent)
+def schedule_visit(
+    order_id: uuid.UUID,
+    payload: ScheduleVisitRequest,
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
+):
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    event = order_service.schedule_visit(
+        db,
+        order,
+        executor_id=payload.executor_id,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        location=payload.location,
+    )
+    return ExecutorCalendarEvent.model_validate(event)
+
+
+@router.patch("/orders/{order_id}/schedule-visit", tags=["Admin"], response_model=ExecutorCalendarEvent)
+def update_visit(
+    order_id: uuid.UUID,
+    payload: ScheduleVisitUpdateRequest,
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
+):
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    event = order_service.update_visit(
+        db,
+        order,
+        executor_id=payload.executor_id,
+        start_time=payload.start_time,
+        end_time=payload.end_time,
+        status_value=payload.status,
+    )
+    return ExecutorCalendarEvent.model_validate(event)

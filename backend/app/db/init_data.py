@@ -7,7 +7,7 @@ from app.schemas.directory import (
     HouseTypeCreate,
     ServiceCreate,
 )
-from app.schemas.orders import OrderCreate
+from app.schemas.orders import CreateOrderRequest
 from app.schemas.user import ExecutorCreateRequest, UserCreate
 from app.services import directory_service, order_service, user_service
 
@@ -106,14 +106,13 @@ def init_orders(db: Session):
     order = order_service.create_order(
         db,
         client=client,
-        data=OrderCreate(
+        data=CreateOrderRequest(
             service_code=1,
             title="BTI plan for remodel",
             description="Need measurements and technical plan",
             address="Sample address 1",
             district_code="central",
             house_type_code="brick",
-            area=54.5,
             calculator_input={"rooms": 2},
         ),
     )
