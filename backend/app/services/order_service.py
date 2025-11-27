@@ -205,15 +205,16 @@ def add_plan_version(
             OrderPlanVersion.version_type == payload.version_type,
         )
     )
+    plan_data = payload.plan.model_dump()
     if existing:
-        existing.plan = payload.plan
+        existing.plan = plan_data
         db.add(existing)
         plan = existing
     else:
         plan = OrderPlanVersion(
             order_id=order.id,
             version_type=payload.version_type,
-            plan=payload.plan,
+            plan=plan_data,
             is_applied=True,
         )
         db.add(plan)

@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.order import AssignmentStatus, CalendarStatus, OrderStatus
+from app.schemas.plan import Plan
 
 
 class OrderFile(BaseModel):
@@ -47,14 +48,14 @@ class OrderPlanVersion(BaseModel):
     id: uuid.UUID
     order_id: uuid.UUID = Field(alias="orderId")
     version_type: str = Field(alias="versionType")
-    plan: dict
+    plan: Plan
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class SavePlanChangesRequest(BaseModel):
     version_type: str = Field(alias="versionType")
-    plan: dict
+    plan: Plan
 
     model_config = ConfigDict(populate_by_name=True)
 

@@ -1,8 +1,9 @@
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from pathlib import Path
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_db_session
@@ -20,6 +21,9 @@ from app.models.order import OrderFile as OrderFileModel
 from app.core.config import settings
 from app.services import order_service
 
+class HTTPValidationError(BaseModel):
+    detail: list[dict] | None = None
+
 router = APIRouter(prefix="/client", tags=["Client"])
 
 
@@ -36,7 +40,12 @@ def list_client_orders(
     return [Order.model_validate(o) for o in orders]
 
 
-@router.post("/orders", response_model=Order, status_code=201)
+@router.post(
+    "/orders",
+    response_model=Order,
+    status_code=201,
+    responses={422: {"model": HTTPValidationError}},
+)
 def create_order(
     payload: CreateOrderRequest,
     db: Session = Depends(get_db_session),
