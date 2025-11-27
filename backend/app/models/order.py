@@ -151,7 +151,8 @@ class OrderChatMessage(Base):
     __tablename__ = "order_chat_messages"
 
     id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
-    order_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("orders.id"), nullable=False)
+    chat_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("chat_threads.id"), nullable=False)
+    order_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("orders.id"))
     sender_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("users.id"))
     sender_type: Mapped[str | None] = mapped_column(String(20))
     message_text: Mapped[str] = mapped_column(Text)
@@ -160,6 +161,7 @@ class OrderChatMessage(Base):
         DateTime(timezone=True), default=datetime.utcnow
     )
 
+    chat: Mapped["ChatThread"] = relationship("ChatThread", back_populates="messages")
     order: Mapped[Order] = relationship("Order", back_populates="chat_messages")
     sender: Mapped["User"] = relationship("User")
 

@@ -487,6 +487,80 @@ paths:
               schema:
                 $ref: '#/components/schemas/OrderPlanVersion'
 
+  /client/chats:
+    get:
+      tags: [Client]
+      summary: ������?�?�� ����� ��'��
+      responses:
+        '200':
+          description: ������< �����'��
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ClientChatThread'
+    post:
+      tags: [Client]
+      summary: ��������� ��'��
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChatRequest'
+      responses:
+        '201':
+          description: ����� ��'��
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientChatThread'
+
+  /chats/{chatId}/messages:
+    get:
+      tags: [Client]
+      summary: ������?�?�� �ؐ��'�� ��'��
+      parameters:
+        - in: path
+          name: chatId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: ������< ��������� � ��'��
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderChatMessage'
+    post:
+      tags: [Client]
+      summary: ��������� ��������� � ��'��
+      parameters:
+        - in: path
+          name: chatId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessageCreate'
+      responses:
+        '200':
+          description: ��������� ��������� � ����� AI (stub)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessagePairResponse'
+
   ####################################################
   # EXECUTOR
   ####################################################
@@ -1144,14 +1218,18 @@ components:
 
     OrderChatMessage:
       type: object
-      required: [id, orderId, messageText, createdAt]
+      required: [id, chatId, messageText, createdAt]
       properties:
         id:
+          type: string
+          format: uuid
+        chatId:
           type: string
           format: uuid
         orderId:
           type: string
           format: uuid
+          nullable: true
         senderId:
           type: string
           format: uuid
@@ -1183,6 +1261,49 @@ components:
           $ref: '#/components/schemas/OrderChatMessage'
         aiMessage:
           $ref: '#/components/schemas/OrderChatMessage'
+
+    ClientChatThread:
+      type: object
+      properties:
+        chatId:
+          type: string
+          format: uuid
+        serviceCode:
+          type: integer
+          nullable: true
+        serviceTitle:
+          type: string
+          nullable: true
+        orderId:
+          type: string
+          format: uuid
+          nullable: true
+        orderStatus:
+          type: string
+          nullable: true
+        lastMessageText:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateChatRequest:
+      type: object
+      required: [serviceCode]
+      properties:
+        serviceCode:
+          type: integer
+        title:
+          type: string
+          nullable: true
+        orderId:
+          type: string
+          format: uuid
+          nullable: true
+        firstMessage:
+          type: string
+          nullable: true
 
     OrderPlanVersion:
       type: object

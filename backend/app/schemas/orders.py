@@ -21,7 +21,8 @@ class OrderFile(BaseModel):
 
 class OrderChatMessage(BaseModel):
     id: uuid.UUID
-    order_id: uuid.UUID = Field(alias="orderId")
+    chat_id: uuid.UUID = Field(alias="chatId")
+    order_id: uuid.UUID | None = Field(default=None, alias="orderId")
     sender_id: uuid.UUID | None = Field(default=None, alias="senderId")
     sender_type: str | None = Field(default=None, alias="senderType")
     message_text: str = Field(alias="messageText")

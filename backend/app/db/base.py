@@ -10,6 +10,7 @@ from app.models.order import (
     ExecutorAssignment,
     ExecutorCalendarEvent,
 )
+from app.models.chat import ChatThread
 
 __all__ = [
     "Base",
@@ -27,4 +28,5 @@ __all__ = [
     "OrderChatMessage",
     "ExecutorAssignment",
     "ExecutorCalendarEvent",
+    "ChatThread",
 ]
