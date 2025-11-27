@@ -1,11 +1,12 @@
-PYTHON ?= python
 VENV ?= .venv
 
 ifeq ($(OS),Windows_NT)
+PYTHON_LAUNCH ?= py -3.12
 VENV_BIN := $(VENV)/Scripts
 PYTHON_BIN := $(VENV_BIN)/python.exe
 PIP := $(VENV_BIN)/pip.exe
 else
+PYTHON_LAUNCH ?= python3.12
 VENV_BIN := $(VENV)/bin
 PYTHON_BIN := $(VENV_BIN)/python
 PIP := $(VENV_BIN)/pip
@@ -18,10 +19,10 @@ install: $(VENV_BIN)
 	$(PIP) install -r requirements.txt
 
 $(VENV_BIN):
-	$(PYTHON) -m venv $(VENV)
+	$(PYTHON_LAUNCH) -m venv $(VENV)
 
-run: install
+run:
 	$(PYTHON_BIN) -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 clean:
-	$(PYTHON) -c "import shutil; shutil.rmtree('$(VENV)', ignore_errors=True)"
+	$(PYTHON_LAUNCH) -c "import shutil; shutil.rmtree('$(VENV)', ignore_errors=True)"

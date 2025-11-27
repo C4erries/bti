@@ -57,8 +57,8 @@ def init_directories(db: Session):
 
 
 def init_users(db: Session):
-    client_email = "client@test.local"
-    executor_email = "executor@test.local"
+    client_email = "client@example.com"
+    executor_email = "executor@example.com"
     if not user_service.get_user_by_email(db, client_email):
         user_service.create_client(
             db,
@@ -82,11 +82,11 @@ def init_users(db: Session):
                 specialization="Measurements",
             ),
         )
-    if not user_service.get_user_by_email(db, "admin@test.local"):
+    if not user_service.get_user_by_email(db, "admin@example.com"):
         user_service.create_user(
             db,
             UserCreate(
-                email="admin@test.local",
+                email="admin@example.com",
                 password="admin123",
                 full_name="Admin",
                 phone="+70000000000",
@@ -96,8 +96,8 @@ def init_users(db: Session):
 
 
 def init_orders(db: Session):
-    client = user_service.get_user_by_email(db, "client@test.local")
-    executor = user_service.get_user_by_email(db, "executor@test.local")
+    client = user_service.get_user_by_email(db, "client@example.com")
+    executor = user_service.get_user_by_email(db, "executor@example.com")
     if not client or not executor:
         return
     existing = order_service.get_client_orders(db, client.id)
