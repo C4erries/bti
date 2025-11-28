@@ -79,6 +79,9 @@ export interface OrderPlanVersion {
   orderId: string;
   versionType: string;
   plan: PlanGeometry;
+  comment?: string | null;
+  createdById?: string | null;
+  createdAt?: string | null;
 }
 
 export interface OrderStatusHistoryItem {

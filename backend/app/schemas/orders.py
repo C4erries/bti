@@ -49,6 +49,9 @@ class OrderPlanVersion(BaseModel):
     order_id: uuid.UUID = Field(alias="orderId")
     version_type: str = Field(alias="versionType")
     plan: Plan
+    comment: str | None = None
+    created_by_id: uuid.UUID | None = Field(default=None, alias="createdById")
+    created_at: datetime | None = Field(default=None, alias="createdAt")
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
@@ -56,6 +59,30 @@ class OrderPlanVersion(BaseModel):
 class SavePlanChangesRequest(BaseModel):
     version_type: str = Field(alias="versionType")
     plan: Plan
+    comment: str | None = None  # Комментарий при сохранении изменений
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class ExecutorApprovePlanRequest(BaseModel):
+    """Запрос на одобрение плана исполнителем"""
+    comment: str | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class ExecutorEditPlanRequest(BaseModel):
+    """Запрос на редактирование плана исполнителем"""
+    plan: Plan
+    comment: str  # Обязательный комментарий с описанием изменений
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class ExecutorRejectPlanRequest(BaseModel):
+    """Запрос на отклонение плана исполнителем"""
+    comment: str  # Обязательный комментарий с замечаниями
+    issues: list[str] | None = None  # Список замечаний
 
     model_config = ConfigDict(populate_by_name=True)
 

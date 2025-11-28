@@ -14,6 +14,11 @@ from app.schemas.orders import (
     ExecutorScheduleVisitRequest,
     ScheduleVisitUpdateRequest,
     ExecutorCalendarEvent,
+    ExecutorApprovePlanRequest,
+    ExecutorEditPlanRequest,
+    ExecutorRejectPlanRequest,
+    SavePlanChangesRequest,
+    OrderPlanVersion,
 )
 from app.services import order_service
 
@@ -196,3 +201,117 @@ def update_visit(
         status_value=payload.status,
     )
     return ExecutorCalendarEvent.model_validate(event)
+
+
+@router.get("/orders/{order_id}/plan", response_model=OrderPlanVersion)
+def get_order_plan(
+    order_id: uuid.UUID,
+    version: str | None = Query(default=None, description="ORIGINAL, MODIFIED, EXECUTOR_EDITED, FINAL"),
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+) -> OrderPlanVersion:
+    """Получить план заказа (для исполнителя)"""
+    _ensure_executor(current_user)
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    versions = order_service.get_plan_versions(db, order_id)
+    if version:
+        match = next((v for v in versions if v.version_type.upper() == version.upper()), None)
+        if match:
+            return OrderPlanVersion.model_validate(match)
+        raise HTTPException(status_code=404, detail=f"Plan version {version} not found")
+    
+    # По умолчанию возвращаем последнюю версию
+    if not versions:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    return OrderPlanVersion.model_validate(versions[-1])
+
+
+@router.get("/orders/{order_id}/plan/versions", response_model=list[OrderPlanVersion])
+def get_all_plan_versions(
+    order_id: uuid.UUID,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+) -> list[OrderPlanVersion]:
+    """Получить все версии плана заказа"""
+    _ensure_executor(current_user)
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    versions = order_service.get_plan_versions(db, order_id)
+    return [OrderPlanVersion.model_validate(v) for v in versions]
+
+
+@router.post("/orders/{order_id}/plan/approve", response_model=ExecutorOrderDetails)
+def approve_plan(
+    order_id: uuid.UUID,
+    payload: ExecutorApprovePlanRequest,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+) -> ExecutorOrderDetails:
+    """Одобрить план клиента - переводит в статус READY_FOR_APPROVAL"""
+    _ensure_executor(current_user)
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    order_service.executor_approve_plan(db, order, current_user, payload.comment)
+    db.refresh(order)
+    return get_order(order_id, db, current_user)
+
+
+@router.post("/orders/{order_id}/plan/edit", response_model=ExecutorOrderDetails)
+def edit_plan(
+    order_id: uuid.UUID,
+    payload: ExecutorEditPlanRequest,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+) -> ExecutorOrderDetails:
+    """Отредактировать план - создает версию EXECUTOR_EDITED и отправляет клиенту на утверждение"""
+    _ensure_executor(current_user)
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    plan_data = payload.plan.model_dump() if hasattr(payload.plan, 'model_dump') else payload.plan
+    order_service.executor_edit_plan(db, order, current_user, plan_data, payload.comment)
+    db.refresh(order)
+    return get_order(order_id, db, current_user)
+
+
+@router.post("/orders/{order_id}/plan/reject", response_model=ExecutorOrderDetails)
+def reject_plan(
+    order_id: uuid.UUID,
+    payload: ExecutorRejectPlanRequest,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+) -> ExecutorOrderDetails:
+    """Отклонить план - переводит в статус REJECTED_BY_EXECUTOR с комментарием и замечаниями"""
+    _ensure_executor(current_user)
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    order_service.executor_reject_plan(db, order, current_user, payload.comment, payload.issues)
+    db.refresh(order)
+    return get_order(order_id, db, current_user)
+
+
+@router.post("/orders/{order_id}/plan/save", response_model=OrderPlanVersion)
+def save_plan_changes(
+    order_id: uuid.UUID,
+    payload: SavePlanChangesRequest,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+) -> OrderPlanVersion:
+    """Сохранить изменения плана (для редактора)"""
+    _ensure_executor(current_user)
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    version = order_service.add_plan_version(db, order, payload, created_by=current_user)
+    return OrderPlanVersion.model_validate(version)

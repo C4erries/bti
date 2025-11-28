@@ -25,6 +25,9 @@ class OrderStatus(str, enum.Enum):
     EXECUTOR_ASSIGNED = "EXECUTOR_ASSIGNED"
     VISIT_SCHEDULED = "VISIT_SCHEDULED"
     DOCUMENTS_IN_PROGRESS = "DOCUMENTS_IN_PROGRESS"
+    READY_FOR_APPROVAL = "READY_FOR_APPROVAL"  # Готов к согласованию
+    AWAITING_CLIENT_APPROVAL = "AWAITING_CLIENT_APPROVAL"  # Ожидает утверждения клиентом
+    REJECTED_BY_EXECUTOR = "REJECTED_BY_EXECUTOR"  # Отклонён исполнителем
     COMPLETED = "COMPLETED"
     CANCELLED = "CANCELLED"
     REJECTED = "REJECTED"
@@ -137,9 +140,11 @@ class OrderPlanVersion(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
     order_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("orders.id"), nullable=False)
-    version_type: Mapped[str] = mapped_column(String(20))  # ORIGINAL / MODIFIED
+    version_type: Mapped[str] = mapped_column(String(20))  # ORIGINAL / MODIFIED / EXECUTOR_EDITED
     plan: Mapped[dict] = mapped_column(JSON)
     is_applied: Mapped[bool] = mapped_column(Boolean, default=False)
+    comment: Mapped[str | None] = mapped_column(Text)  # Комментарий исполнителя при редактировании
+    created_by_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), ForeignKey("users.id"))  # Кто создал версию
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow
     )
