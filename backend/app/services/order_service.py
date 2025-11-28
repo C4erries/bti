@@ -203,7 +203,7 @@ def get_order_files(db: Session, order_id: uuid.UUID) -> list[OrderFile]:
 
 
 def add_plan_version(
-    db: Session, order: Order, payload: SavePlanChangesRequest
+    db: Session, order: Order, payload: SavePlanChangesRequest, created_by: User | None = None
 ) -> OrderPlanVersion:
     existing = db.scalar(
         select(OrderPlanVersion).where(
@@ -214,6 +214,10 @@ def add_plan_version(
     plan_data = payload.plan.model_dump()
     if existing:
         existing.plan = plan_data
+        if payload.comment:
+            existing.comment = payload.comment
+        if created_by:
+            existing.created_by_id = created_by.id
         db.add(existing)
         plan = existing
     else:
@@ -222,11 +226,81 @@ def add_plan_version(
             version_type=payload.version_type,
             plan=plan_data,
             is_applied=True,
+            comment=payload.comment,
+            created_by_id=created_by.id if created_by else None,
         )
         db.add(plan)
     db.commit()
     db.refresh(plan)
     return plan
+
+
+def executor_approve_plan(
+    db: Session, order: Order, executor: User, comment: str | None = None
+) -> OrderPlanVersion | None:
+    """Одобрить план клиента - переводит в статус READY_FOR_APPROVAL"""
+    # Находим текущий план (MODIFIED или ORIGINAL)
+    current_plan = db.scalar(
+        select(OrderPlanVersion)
+        .where(OrderPlanVersion.order_id == order.id)
+        .order_by(OrderPlanVersion.created_at.desc())
+    )
+    
+    final_plan = None
+    if current_plan:
+        # Создаем финальную версию
+        final_plan = OrderPlanVersion(
+            order_id=order.id,
+            version_type="FINAL",
+            plan=current_plan.plan,
+            is_applied=True,
+            comment=comment or "План одобрен исполнителем",
+            created_by_id=executor.id,
+        )
+        db.add(final_plan)
+    
+    add_status_history(db, order, OrderStatus.READY_FOR_APPROVAL, executor, comment)
+    db.commit()
+    if final_plan:
+        db.refresh(final_plan)
+    db.refresh(order)
+    return final_plan
+
+
+def executor_edit_plan(
+    db: Session, order: Order, executor: User, plan_data: dict, comment: str
+) -> OrderPlanVersion:
+    """Отредактировать план - создает новую версию EXECUTOR_EDITED и отправляет клиенту на утверждение"""
+    edited_plan = OrderPlanVersion(
+        order_id=order.id,
+        version_type="EXECUTOR_EDITED",
+        plan=plan_data,
+        is_applied=False,  # Не применена, ждет утверждения клиентом
+        comment=comment,
+        created_by_id=executor.id,
+    )
+    db.add(edited_plan)
+    add_status_history(
+        db, order, OrderStatus.AWAITING_CLIENT_APPROVAL, executor,
+        f"План отредактирован исполнителем. {comment}"
+    )
+    db.commit()
+    db.refresh(edited_plan)
+    return edited_plan
+
+
+def executor_reject_plan(
+    db: Session, order: Order, executor: User, comment: str, issues: list[str] | None = None
+) -> OrderStatusHistory:
+    """Отклонить план - переводит в статус REJECTED_BY_EXECUTOR с комментарием и замечаниями"""
+    rejection_comment = comment
+    if issues:
+        rejection_comment += f"\nЗамечания:\n" + "\n".join(f"- {issue}" for issue in issues)
+    
+    history = add_status_history(
+        db, order, OrderStatus.REJECTED_BY_EXECUTOR, executor, rejection_comment
+    )
+    return history
 
 
 def get_plan_versions(db: Session, order_id: uuid.UUID) -> list[OrderPlanVersion]:

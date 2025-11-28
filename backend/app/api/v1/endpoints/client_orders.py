@@ -146,7 +146,7 @@ def add_plan_change(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     _ensure_ownership(order, current_user.id)
-    version = order_service.add_plan_version(db, order, payload)
+    version = order_service.add_plan_version(db, order, payload, created_by=current_user)
     return OrderPlanVersion.model_validate(version)
 
 
