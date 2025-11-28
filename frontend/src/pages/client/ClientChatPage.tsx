@@ -10,7 +10,22 @@ import {
   subtleButtonClass,
   textareaClass,
 } from '../../components/ui';
-import type { ChatMessagePairResponse, Order, OrderChatMessage, ClientChatThread } from '../../types';
+import type {
+  ChatMessagePairResponse,
+  ClientChatThread,
+  Order,
+  OrderChatMessage,
+} from '../../types';
+
+const normalizeThread = (t: Partial<ClientChatThread> & Record<string, any>): ClientChatThread => ({
+  chatId: t.chatId || (t as any).id || (t as any).orderId || crypto.randomUUID(),
+  orderId: t.orderId ?? (t as any).order_id ?? null,
+  serviceCode: Number(t.serviceCode ?? 0),
+  serviceTitle: t.serviceTitle ?? (t as any).title ?? 'Без названия',
+  orderStatus: t.orderStatus,
+  lastMessageText: t.lastMessageText ?? (t as any).lastMessage ?? null,
+  updatedAt: t.updatedAt ?? (t as any).createdAt ?? new Date().toISOString(),
+});
 
 const ClientChatPage = () => {
   const { chatId } = useParams();
@@ -18,6 +33,7 @@ const ClientChatPage = () => {
   const [messages, setMessages] = useState<OrderChatMessage[]>([]);
   const [order, setOrder] = useState<Order | null>(null);
   const [threads, setThreads] = useState<ClientChatThread[]>([]);
+  const [currentThread, setCurrentThread] = useState<ClientChatThread | null>(null);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,10 +41,18 @@ const ClientChatPage = () => {
 
   useEffect(() => {
     if (chatId && token) {
-      void Promise.all([loadThreads(), loadChat(), loadOrderIfAny()]);
+      void loadThreads();
+      void loadChat();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId, token]);
+
+  useEffect(() => {
+    if (!chatId) return;
+    const thread = threads.find((t) => t.chatId === chatId) || null;
+    setCurrentThread(thread);
+    void loadOrderIfAny(thread);
+  }, [threads, chatId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -37,8 +61,8 @@ const ClientChatPage = () => {
   const loadThreads = async () => {
     if (!token) return;
     try {
-      const data = await apiFetch<ClientChatThread[]>('/client/chats', {}, token);
-      setThreads(data);
+      const data = await apiFetch<any[]>('/client/chats', {}, token);
+      setThreads(data.map((item) => normalizeThread(item)));
     } catch {
       setThreads([]);
     }
@@ -55,10 +79,8 @@ const ClientChatPage = () => {
     }
   };
 
-  const loadOrderIfAny = async () => {
-    if (!chatId || !token || threads.length === 0) return;
-    const thread = threads.find((t) => t.chatId === chatId);
-    if (!thread?.orderId) {
+  const loadOrderIfAny = async (thread: ClientChatThread | null) => {
+    if (!token || !thread?.orderId) {
       setOrder(null);
       return;
     }
@@ -116,6 +138,11 @@ const ClientChatPage = () => {
             )}
           </div>
         </div>
+        {currentThread && (
+          <p className="mt-1 text-xs text-slate-600">
+            Чат: {currentThread.chatId} {currentThread.orderId ? `(order: ${currentThread.orderId})` : ''}
+          </p>
+        )}
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
       </div>
 

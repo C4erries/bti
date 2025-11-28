@@ -122,8 +122,19 @@ class LabelElement(PlanElementBase):
 PlanElement = WallElement | ZoneElement | DoorElement | WindowElement | LabelElement
 
 
+class PlanObject3D(BaseModel):
+    id: str
+    type: str
+    position: dict
+    rotation: dict | None = None
+    size: dict | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class Plan(BaseModel):
     meta: PlanMeta
     elements: list[PlanElement]
+    objects3d: list[PlanObject3D] | None = Field(default=None, alias="objects3d")
 
     model_config = ConfigDict(populate_by_name=True)

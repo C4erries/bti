@@ -13,22 +13,28 @@ import {
 } from '../components/ui';
 import type { ClientChatThread, Service } from '../types';
 
-const SidebarItem = ({ chat, isActive }: { chat: ClientChatThread; isActive: boolean }) => {
-  return (
-    <NavLink
-      to={`/client/chat/${chat.chatId}`}
-      className={`block rounded-md px-3 py-2 text-sm hover:bg-slate-200 ${
-        isActive ? 'bg-slate-200' : ''
-      }`}
-    >
-      <div className="flex items-center justify-between">
-        <span className="font-medium">{chat.serviceTitle}</span>
-        {chat.orderStatus && <span className={badgeClass}>{chat.orderStatus}</span>}
-      </div>
-      <p className="text-xs text-slate-600 truncate">{chat.lastMessageText || 'Новый чат'}</p>
-    </NavLink>
-  );
-};
+const normalizeThread = (t: Partial<ClientChatThread> & Record<string, any>): ClientChatThread => ({
+  chatId: t.chatId || (t as any).id || (t as any).orderId || crypto.randomUUID(),
+  orderId: t.orderId ?? (t as any).order_id ?? null,
+  serviceCode: Number(t.serviceCode ?? 0),
+  serviceTitle: t.serviceTitle ?? (t as any).title ?? 'Без названия',
+  orderStatus: t.orderStatus,
+  lastMessageText: t.lastMessageText ?? (t as any).lastMessage ?? null,
+  updatedAt: t.updatedAt ?? (t as any).createdAt ?? new Date().toISOString(),
+});
+
+const SidebarItem = ({ chat, isActive }: { chat: ClientChatThread; isActive: boolean }) => (
+  <NavLink
+    to={`/client/chat/${chat.chatId}`}
+    className={`block rounded-md px-3 py-2 text-sm hover:bg-slate-200 ${isActive ? 'bg-slate-200' : ''}`}
+  >
+    <div className="flex items-center justify-between">
+      <span className="font-medium">{chat.serviceTitle}</span>
+      {chat.orderStatus && <span className={badgeClass}>{chat.orderStatus}</span>}
+    </div>
+    <p className="text-xs text-slate-600 truncate">{chat.lastMessageText || 'Новый чат'}</p>
+  </NavLink>
+);
 
 const ClientChatShell = () => {
   const { token } = useAuth();
@@ -52,8 +58,8 @@ const ClientChatShell = () => {
   const refreshChats = async () => {
     if (!token) return;
     try {
-      const data = await apiFetch<ClientChatThread[]>('/client/chats', {}, token);
-      setChats(data);
+      const data = await apiFetch<any[]>('/client/chats', {}, token);
+      setChats(data.map((item) => normalizeThread(item)));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось загрузить чаты');
     }
@@ -84,10 +90,11 @@ const ClientChatShell = () => {
         },
         token,
       );
-      setChats((prev) => [created, ...prev]);
+      const normalized = normalizeThread(created);
+      setChats((prev) => [normalized, ...prev]);
       setShowNew(false);
       setNewChat({ serviceCode: '', title: '', firstMessageText: '' });
-      navigate(`/client/chat/${created.chatId}`);
+      navigate(`/client/chat/${normalized.chatId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось создать чат');
     } finally {

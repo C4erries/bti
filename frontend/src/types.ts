@@ -170,6 +170,44 @@ export interface ClientChatThread {
   updatedAt: string;
 }
 
+export interface PlanMeta {
+  width: number;
+  height: number;
+  unit: 'px';
+  scale: {
+    px_per_meter: number;
+  };
+  background?: Record<string, unknown>;
+}
+
+export interface PlanElement {
+  id: string;
+  type: 'wall' | 'zone' | 'door' | 'window' | 'label';
+  properties?: Record<string, unknown>;
+  geometry: {
+    kind: 'segment' | 'polygon';
+    start?: { x: number; y: number };
+    end?: { x: number; y: number };
+    points?: { x: number; y: number }[];
+    loadBearing?: boolean;
+    zoneType?: string;
+  };
+}
+
+export interface PlanObject3D {
+  id: string;
+  type: string;
+  position: { x: number; y: number; z: number };
+  rotation?: { y?: number };
+  size?: { x: number; y: number; z: number };
+}
+
+export interface PlanGeometry {
+  meta: PlanMeta;
+  elements: PlanElement[];
+  objects3d?: PlanObject3D[];
+}
+
 export interface Department {
   code: string;
   name?: string | null;
