@@ -12,10 +12,16 @@ export interface Plan3DViewerProps {
 const defaultHeight = 2.7;
 const wallThickness = 0.2;
 
-const from2DTo3D = (xPx: number, yPx: number, pxPerMeter: number) => ({
-  x: xPx / pxPerMeter,
-  z: -yPx / pxPerMeter,
-});
+const safeNumber = (val: any, fallback = 0) =>
+  Number.isFinite(Number(val)) ? Number(val) : fallback;
+
+const from2DTo3D = (xPx: number, yPx: number, pxPerMeter: number) => {
+  const scale = pxPerMeter > 0 ? pxPerMeter : 100;
+  return {
+    x: safeNumber(xPx, 0) / scale,
+    z: -safeNumber(yPx, 0) / scale,
+  };
+};
 
 const Plan3DViewer = ({ plan, onPlanChange }: Plan3DViewerProps) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -163,8 +169,8 @@ const Plan3DViewer = ({ plan, onPlanChange }: Plan3DViewerProps) => {
 
     // Ground
     const floorGeom = new THREE.PlaneGeometry(
-      (plan.meta?.width || 1000) / pxPerMeter,
-      (plan.meta?.height || 1000) / pxPerMeter,
+      safeNumber(plan.meta?.width, 1000) / pxPerMeter,
+      safeNumber(plan.meta?.height, 1000) / pxPerMeter,
     );
     const floorMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, side: THREE.DoubleSide });
     const floor = new THREE.Mesh(floorGeom, floorMat);
@@ -181,18 +187,20 @@ const Plan3DViewer = ({ plan, onPlanChange }: Plan3DViewerProps) => {
     group: THREE.Group,
     scale: number,
   ) => {
+    const safeScale = scale > 0 ? scale : 100;
     planData.elements
       .filter((el) => el.type === 'wall' && el.geometry.kind === 'segment' && el.geometry.start && el.geometry.end)
       .forEach((wall) => {
         const { start, end } = wall.geometry;
         if (!start || !end) return;
-        const dx = end.x - start.x;
-        const dy = end.y - start.y;
+        const dx = safeNumber(end.x) - safeNumber(start.x);
+        const dy = safeNumber(end.y) - safeNumber(start.y);
         const lengthPx = Math.sqrt(dx * dx + dy * dy);
         const length = lengthPx / scale;
-        const midX = (start.x + end.x) / 2;
-        const midY = (start.y + end.y) / 2;
-        const center3d = from2DTo3D(midX, midY, scale);
+        if (!Number.isFinite(length)) return;
+        const midX = (safeNumber(start.x) + safeNumber(end.x)) / 2;
+        const midY = (safeNumber(start.y) + safeNumber(end.y)) / 2;
+        const center3d = from2DTo3D(midX, midY, safeScale);
         const geo = new THREE.BoxGeometry(length, defaultHeight, wallThickness);
         const material = new THREE.MeshStandardMaterial({
           color: wall.geometry.loadBearing ? 0x475569 : 0x9ca3af,
@@ -209,14 +217,17 @@ const Plan3DViewer = ({ plan, onPlanChange }: Plan3DViewerProps) => {
     group: THREE.Group,
     scale: number,
   ) => {
+    const safeScale = scale > 0 ? scale : 100;
     planData.elements
       .filter((el) => el.type === 'zone' && el.geometry.kind === 'polygon' && el.geometry.points?.length)
       .forEach((zone) => {
-        const pts = zone.geometry.points || [];
+        const pts = (zone.geometry.points || []).filter(
+          (p) => Number.isFinite(p.x) && Number.isFinite(p.y),
+        );
         if (pts.length < 3) return;
         const shape = new THREE.Shape();
         pts.forEach((p, idx) => {
-          const mapped = from2DTo3D(p.x, p.y, scale);
+          const mapped = from2DTo3D(p.x, p.y, safeScale);
           if (idx === 0) shape.moveTo(mapped.x, mapped.z);
           else shape.lineTo(mapped.x, mapped.z);
         });

@@ -66,14 +66,14 @@ const ClientOrderDetailsPage = () => {
 
   const loadFiles = async () => {
     if (!orderId || !token) return;
-    const data = await apiFetch<OrderFile[]>(`/orders/${orderId}/files`, {}, token);
+    const data = await apiFetch<OrderFile[]>(`/client/orders/${orderId}/files`, {}, token);
     setFiles(data);
   };
 
   const loadPlan = async () => {
     if (!orderId || !token) return;
     try {
-      const data = await apiFetch<OrderPlanVersion>(`/orders/${orderId}/plan`, {}, token);
+      const data = await apiFetch<OrderPlanVersion>(`/client/orders/${orderId}/plan`, {}, token);
       setPlan(data);
       const geometry = data.plan as unknown;
       if (geometry && typeof geometry === 'object' && (geometry as any).meta && (geometry as any).elements) {
@@ -93,7 +93,7 @@ const ClientOrderDetailsPage = () => {
     if (!orderId || !token) return;
     try {
       const data = await apiFetch<OrderStatusHistoryItem[]>(
-        `/orders/${orderId}/status-history`,
+        `/client/orders/${orderId}/status-history`,
         {},
         token,
       );
@@ -116,7 +116,7 @@ const ClientOrderDetailsPage = () => {
   const loadAnalysis = async () => {
     if (!orderId || !token) return;
     try {
-      const data = await apiFetch<AiAnalysis>(`/orders/${orderId}/ai/analysis`, {}, token);
+      const data = await apiFetch<AiAnalysis>(`/client/orders/${orderId}/ai/analysis`, {}, token);
       setAnalysis(data);
     } catch {
       setAnalysis(null);
@@ -129,7 +129,7 @@ const ClientOrderDetailsPage = () => {
     const formData = new FormData();
     formData.append('file', fileToUpload);
     await apiFetch<OrderFile>(
-      `/orders/${orderId}/files`,
+      `/client/orders/${orderId}/files`,
       {
         method: 'POST',
         data: formData,
@@ -148,7 +148,7 @@ const ClientOrderDetailsPage = () => {
     try {
       const parsed = planContent ? JSON.parse(planContent) : {};
       await apiFetch<OrderPlanVersion>(
-        `/orders/${orderId}/plan/changes`,
+        `/client/orders/${orderId}/plan/changes`,
         {
           method: 'POST',
           data: { versionType: planVersionType, plan: parsed },
@@ -188,7 +188,7 @@ const ClientOrderDetailsPage = () => {
   const requestAnalysis = async () => {
     if (!orderId || !token) return;
     try {
-      await apiFetch(`/orders/${orderId}/ai/analyze`, { method: 'POST' }, token);
+      await apiFetch(`/client/orders/${orderId}/ai/analyze`, { method: 'POST' }, token);
       await loadAnalysis();
       setMessage('Запрос на анализ отправлен');
     } catch (err) {

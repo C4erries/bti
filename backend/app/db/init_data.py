@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
@@ -7,9 +8,10 @@ from app.schemas.directory import (
     HouseTypeCreate,
     ServiceCreate,
 )
-from app.schemas.orders import CreateOrderRequest
+from app.schemas.orders import CreateOrderRequest, SavePlanChangesRequest
 from app.schemas.user import ExecutorCreateRequest, UserCreate
 from app.services import directory_service, order_service, user_service
+from app.models.order import OrderPlanVersion
 
 
 def init_directories(db: Session):
@@ -119,12 +121,72 @@ def init_orders(db: Session):
     order_service.assign_executor(db, order, executor, assigned_by=executor)
 
 
+def init_demo_plan3d(db: Session):
+    client = user_service.get_user_by_email(db, "client@example.com")
+    if not client:
+        return
+    orders = order_service.get_client_orders(db, client.id)
+    if not orders:
+        return
+    order = orders[0]
+    existing = db.scalar(select(OrderPlanVersion).where(OrderPlanVersion.order_id == order.id))
+    if existing:
+        return
+
+    payload = SavePlanChangesRequest(
+        versionType="MODIFIED",
+        plan={
+            "meta": {
+                "width": 800,
+                "height": 600,
+                "unit": "px",
+                "scale": {"px_per_meter": 40},
+                "background": None,
+            },
+            "elements": [
+                {
+                    "id": "wall_1",
+                    "type": "wall",
+                    "role": "EXISTING",
+                    "loadBearing": True,
+                    "thickness": 20,
+                    "geometry": {
+                        "kind": "segment",
+                        "points": [100, 100, 700, 100],
+                    },
+                },
+                {
+                    "id": "zone_kitchen",
+                    "type": "zone",
+                    "zoneType": "kitchen",
+                    "relatedTo": ["wall_1"],
+                    "geometry": {
+                        "kind": "polygon",
+                        "points": [100, 100, 500, 100, 500, 350, 100, 350],
+                    },
+                },
+            ],
+            "objects3d": [
+                {
+                    "id": "obj_sofa_1",
+                    "type": "sofa",
+                    "position": {"x": 3.2, "y": 0.0, "z": 1.5},
+                    "rotation": {"y": 1.57},
+                    "size": {"x": 2.0, "y": 0.8, "z": 0.9},
+                }
+            ],
+        },
+    )
+    order_service.add_plan_version(db, order, payload)
+
+
 def init_data():
     db = SessionLocal()
     try:
         init_directories(db)
         init_users(db)
         init_orders(db)
+        init_demo_plan3d(db)
     finally:
         db.close()
 
