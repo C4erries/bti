@@ -8,6 +8,7 @@ import ClientOrdersPage from './pages/client/OrdersPage';
 import ClientOrderDetailsPage from './pages/client/OrderDetailsPage';
 import ClientChatPage from './pages/client/ClientChatPage';
 import ClientChatLandingPage from './pages/client/ClientChatLandingPage';
+import PriceCalculatorPage from './pages/client/PriceCalculatorPage';
 import ExecutorOrdersPage from './pages/executor/ExecutorOrdersPage';
 import ExecutorOrderDetailsPage from './pages/executor/ExecutorOrderDetailsPage';
 import ExecutorCalendarPage from './pages/executor/ExecutorCalendarPage';
@@ -94,6 +95,7 @@ const App = () => {
             <Route path="orders/new" element={<CreateOrderPage />} />
             <Route path="orders/:orderId" element={<ClientOrderDetailsPage />} />
             <Route path="chat/:chatId" element={<ClientChatPage />} />
+            <Route path="calculator" element={<PriceCalculatorPage />} />
           </Route>
 
           <Route

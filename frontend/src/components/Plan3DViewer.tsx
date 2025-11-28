@@ -220,6 +220,10 @@ const SceneContent = ({
   const width = safeNumber(plan.meta?.width, 1000) / pxPerMeter;
   const height = safeNumber(plan.meta?.height, 1000) / pxPerMeter;
   const objects = plan.objects3d || [];
+  const fitKey = useMemo(
+    () => JSON.stringify({ w: plan.meta?.width, h: plan.meta?.height, el: (plan.elements || []).map((e) => e.id) }),
+    [plan.meta?.height, plan.meta?.width, plan.elements],
+  );
 
   useEffect(() => {
     const group = groupRef.current;
@@ -241,7 +245,8 @@ const SceneContent = ({
       controls.target.copy(center);
       controls.update();
     }
-  }, [camera, controls, plan]);
+    // Fit is tied to plan layout (meta + elements). Objects movement/addition should not jerk the camera.
+  }, [camera, controls, fitKey]);
 
   return (
     <group ref={groupRef}>
