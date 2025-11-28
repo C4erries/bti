@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     client_orders,
     executor_calendar,
     executor_orders,
+    pricing,
     public,
 )
 
@@ -22,3 +23,4 @@ api_router.include_router(executor_calendar.router)
 api_router.include_router(admin_users.router)
 api_router.include_router(admin_orders.router)
 api_router.include_router(admin_directories.router)
+api_router.include_router(pricing.router)

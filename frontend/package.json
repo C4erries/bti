@@ -19,10 +19,16 @@
     "vite": "^7.2.4"
   },
   "dependencies": {
+    "@react-spring/animated": "^10.0.3",
+    "@react-spring/core": "^10.0.3",
+    "@react-spring/three": "^10.0.3",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.4.0",
     "@types/three": "^0.181.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.6",
-    "three": "^0.181.2"
+    "three": "^0.181.2",
+    "three-stdlib": "^2.30.4"
   }
 }

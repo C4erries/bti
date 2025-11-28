@@ -183,6 +183,9 @@ const ClientChatShell = () => {
             <Link className={subtleButtonClass} to="/client/orders/new">
               Создать заказ
             </Link>
+            <Link className={subtleButtonClass} to="/client/calculator">
+              ??????????? ?????????
+            </Link>
           </div>
         </div>
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}

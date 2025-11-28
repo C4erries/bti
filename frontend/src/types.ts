@@ -227,6 +227,18 @@ export interface PlanGeometry {
   objects3d?: PlanObject3D[];
 }
 
+export interface PriceBreakdown {
+  baseComponent: number;
+  worksComponent: number;
+  featuresCoef: number;
+  raw?: Record<string, unknown> | null;
+}
+
+export interface PriceEstimateResponse {
+  estimatedPrice: number;
+  breakdown: PriceBreakdown;
+}
+
 export interface Department {
   code: string;
   name?: string | null;

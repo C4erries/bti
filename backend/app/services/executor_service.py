@@ -34,3 +34,13 @@ def get_executor_load(db: Session, executor_id) -> int:
 
 def get_calendar(db: Session, executor_id):
     return order_service.get_executor_calendar(db, executor_id)
+
+
+def list_executors_by_department(db: Session, department_code: str | None) -> list[User]:
+    query = (
+        select(User)
+        .join(ExecutorProfile, ExecutorProfile.user_id == User.id)
+    )
+    if department_code:
+        query = query.where(ExecutorProfile.department_code == department_code)
+    return list(db.scalars(query))

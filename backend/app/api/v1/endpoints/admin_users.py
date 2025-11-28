@@ -26,6 +26,28 @@ def create_executor(
     return ExecutorDetails(user=user, executorProfile={"departmentCode": executor_profile.department_code if executor_profile else None, "experienceYears": executor_profile.experience_years if executor_profile else None})
 
 
+@router.get("/executors", response_model=list[ExecutorDetails], summary="Список исполнителей")
+def list_executors(
+    departmentCode: str | None = None,
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
+) -> list[ExecutorDetails]:
+    users = executor_service.list_executors_by_department(db, departmentCode)
+    results: list[ExecutorDetails] = []
+    for user in users:
+        profile = user.executor_profile
+        results.append(
+            ExecutorDetails(
+                user=user,
+                executorProfile={
+                    "departmentCode": profile.department_code if profile else None,
+                    "experienceYears": profile.experience_years if profile else None,
+                },
+            )
+        )
+    return results
+
+
 @router.get("/users", response_model=list[User], summary="Список пользователей")
 def list_users(
     db: Session = Depends(get_db_session), admin=Depends(get_current_admin)
