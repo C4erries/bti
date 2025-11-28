@@ -31,7 +31,6 @@ const ExecutorOrderDetailsPage = () => {
   const [currentPlan, setCurrentPlan] = useState<OrderPlanVersion | null>(null);
   const [planData, setPlanData] = useState<PlanGeometry | null>(null);
   const [planVersions, setPlanVersions] = useState<OrderPlanVersion[]>([]);
-  const [isEditing, setIsEditing] = useState(false);
   const [editComment, setEditComment] = useState('');
   const [rejectComment, setRejectComment] = useState('');
   const [rejectIssues, setRejectIssues] = useState<string[]>(['']);
@@ -142,7 +141,6 @@ const ExecutorOrderDetailsPage = () => {
         },
         token
       );
-      setIsEditing(false);
       setEditComment('');
       setMessage('План отредактирован и отправлен клиенту на утверждение');
       await loadDetails();
@@ -335,7 +333,6 @@ const ExecutorOrderDetailsPage = () => {
                     className={`${subtleButtonClass} ${planViewMode === 'edit' ? 'bg-slate-100' : ''}`}
                     onClick={() => {
                       setPlanViewMode('edit');
-                      setIsEditing(true);
                     }}
                   >
                     Редактировать
@@ -418,7 +415,6 @@ const ExecutorOrderDetailsPage = () => {
                       type="button"
                       className={subtleButtonClass}
                       onClick={() => {
-                        setIsEditing(false);
                         setPlanViewMode('3d');
                         setEditComment('');
                       }}
@@ -450,7 +446,6 @@ const ExecutorOrderDetailsPage = () => {
                         setPlanData(currentPlan.plan);
                       }
                       setPlanViewMode('edit');
-                      setIsEditing(true);
                     }}
                     disabled={!currentPlan && !planData}
                     title={!currentPlan && !planData ? 'Сначала загрузите план' : 'Отредактировать план'}

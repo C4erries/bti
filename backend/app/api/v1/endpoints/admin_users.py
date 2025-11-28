@@ -23,7 +23,19 @@ def create_executor(
 ) -> ExecutorDetails:
     user = executor_service.create_executor(db, data)
     executor_profile = user.executor_profile
-    return ExecutorDetails(user=user, executorProfile={"departmentCode": executor_profile.department_code if executor_profile else None, "experienceYears": executor_profile.experience_years if executor_profile else None})
+    stats = executor_service.get_executor_stats(db, user.id)
+    return ExecutorDetails(
+        user=user,
+        executorProfile={
+            "departmentCode": executor_profile.department_code if executor_profile else None,
+            "experienceYears": executor_profile.experience_years if executor_profile else None,
+        },
+        currentLoad=stats["current_load"],
+        totalOrders=stats["total_orders"],
+        completedOrders=stats["completed_orders"],
+        avgCompletionDays=stats["avg_completion_days"],
+        lastActivityAt=stats["last_activity_at"],
+    )
 
 
 @router.get("/executors", response_model=list[ExecutorDetails], summary="Список исполнителей")
@@ -36,6 +48,7 @@ def list_executors(
     results: list[ExecutorDetails] = []
     for user in users:
         profile = user.executor_profile
+        stats = executor_service.get_executor_stats(db, user.id)
         results.append(
             ExecutorDetails(
                 user=user,
@@ -43,9 +56,40 @@ def list_executors(
                     "departmentCode": profile.department_code if profile else None,
                     "experienceYears": profile.experience_years if profile else None,
                 },
+                currentLoad=stats["current_load"],
+                totalOrders=stats["total_orders"],
+                completedOrders=stats["completed_orders"],
+                avgCompletionDays=stats["avg_completion_days"],
+                lastActivityAt=stats["last_activity_at"],
             )
         )
     return results
+
+
+
+@router.get("/executors/{executor_id}", response_model=ExecutorDetails, summary="?????? ???????????")
+def get_executor_details(
+    executor_id: uuid.UUID,
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
+) -> ExecutorDetails:
+    user = user_service.get_user_by_id(db, executor_id)
+    if not user or not user.executor_profile:
+        raise HTTPException(status_code=404, detail="Executor not found")
+    profile = user.executor_profile
+    stats = executor_service.get_executor_stats(db, user.id)
+    return ExecutorDetails(
+        user=user,
+        executorProfile={
+            "departmentCode": profile.department_code if profile else None,
+            "experienceYears": profile.experience_years if profile else None,
+        },
+        currentLoad=stats["current_load"],
+        totalOrders=stats["total_orders"],
+        completedOrders=stats["completed_orders"],
+        avgCompletionDays=stats["avg_completion_days"],
+        lastActivityAt=stats["last_activity_at"],
+    )
 
 
 @router.get("/users", response_model=list[User], summary="Список пользователей")

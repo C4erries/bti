@@ -88,6 +88,7 @@ export interface OrderStatusHistoryItem {
   oldStatus?: string | null;
   status: string;
   changedByUserId?: string | null;
+  comment?: string | null;
   changedAt: string;
 }
 
@@ -242,4 +243,28 @@ export interface PriceEstimateResponse {
 export interface Department {
   code: string;
   name?: string | null;
+}
+
+export interface ExecutorProfile {
+  departmentCode?: string | null;
+  experienceYears?: number | null;
+  specialization?: string | null;
+}
+
+export interface ExecutorStats {
+  currentLoad: number;
+  totalOrders: number;
+  completedOrders: number;
+  avgCompletionDays?: number | null;
+  lastActivityAt?: string | null;
+}
+
+export interface ExecutorDetails {
+  user: User;
+  executorProfile?: ExecutorProfile | null;
+  currentLoad?: number;
+  totalOrders?: number;
+  completedOrders?: number;
+  avgCompletionDays?: number | null;
+  lastActivityAt?: string | null;
 }

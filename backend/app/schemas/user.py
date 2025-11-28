@@ -53,6 +53,11 @@ class UpdateUserRequest(BaseModel):
 class ExecutorDetails(BaseModel):
     user: User
     executor_profile: dict | None = Field(default=None, alias="executorProfile")
+    current_load: int = Field(default=0, alias="currentLoad")
+    total_orders: int = Field(default=0, alias="totalOrders")
+    completed_orders: int = Field(default=0, alias="completedOrders")
+    avg_completion_days: float | None = Field(default=None, alias="avgCompletionDays")
+    last_activity_at: datetime | None = Field(default=None, alias="lastActivityAt")
 
     model_config = ConfigDict(populate_by_name=True)
 
