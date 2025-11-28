@@ -117,6 +117,14 @@ class OrderStatusHistory(Base):
     order: Mapped[Order] = relationship("Order", back_populates="status_history")
     changed_by: Mapped["User"] = relationship("User")
 
+    @property
+    def changed_at(self) -> datetime:
+        return self.created_at
+
+    @property
+    def changed_by_user_id(self) -> uuid.UUID | None:
+        return self.changed_by_id
+
 
 class OrderFile(Base):
     __tablename__ = "order_files"
