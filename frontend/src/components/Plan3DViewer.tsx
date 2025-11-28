@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import type { PlanGeometry, PlanObject3D } from '../types';
+import type { PlanGeometry, PlanObject3D, WallElement, ZoneElement } from '../types';
 import { buttonClass, cardClass, inputClass, subtleButtonClass } from './ui';
 
 export interface Plan3DViewerProps {
@@ -46,7 +46,7 @@ const Plan3DViewer = ({ plan, onPlanChange }: Plan3DViewerProps) => {
   useEffect(() => {
     if (!mountRef.current) return;
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf5f7fb);
+    scene.background = new THREE.Color(0xe5e7eb);
     const width = mountRef.current.clientWidth;
     const height = mountRef.current.clientHeight || 600;
     const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
@@ -57,12 +57,21 @@ const Plan3DViewer = ({ plan, onPlanChange }: Plan3DViewerProps) => {
     mountRef.current.appendChild(renderer.domElement);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.enablePan = true;
+    controls.enableZoom = true;
+    controls.enableRotate = true;
+    controls.minDistance = 1;
+    controls.maxDistance = 200;
     controls.target.set(0, 0, 0);
     scene.add(new THREE.AmbientLight(0xffffff, 0.8));
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
     dirLight.position.set(5, 10, 7.5);
     scene.add(dirLight);
+    const grid = new THREE.GridHelper(50, 50);
+    scene.add(grid);
     scene.add(objectsGroupRef.current);
+    const axes = new THREE.AxesHelper(5);
+    scene.add(axes);
 
     const animate = () => {
       controls.update();
@@ -162,8 +171,13 @@ const Plan3DViewer = ({ plan, onPlanChange }: Plan3DViewerProps) => {
   };
 
   const rebuildScene = () => {
-    const scene = sceneRef.current;
-    if (!scene) return;
+    if (!sceneRef.current) return;
+    console.log(
+      'Plan3DViewer: elements',
+      plan.elements.length,
+      'objects3d',
+      plan.objects3d?.length ?? 0,
+    );
     const group = objectsGroupRef.current;
     while (group.children.length) group.remove(group.children[0]);
 
@@ -172,7 +186,7 @@ const Plan3DViewer = ({ plan, onPlanChange }: Plan3DViewerProps) => {
       safeNumber(plan.meta?.width, 1000) / pxPerMeter,
       safeNumber(plan.meta?.height, 1000) / pxPerMeter,
     );
-    const floorMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, side: THREE.DoubleSide });
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0xf9fafb, side: THREE.DoubleSide });
     const floor = new THREE.Mesh(floorGeom, floorMat);
     floor.rotation.x = -Math.PI / 2;
     group.add(floor);
@@ -180,6 +194,43 @@ const Plan3DViewer = ({ plan, onPlanChange }: Plan3DViewerProps) => {
     buildWallsFromPlan(plan, group, pxPerMeter);
     buildZonesFromPlan(plan, group, pxPerMeter);
     buildObjects(plan, group);
+
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (camera && controls && group.children.length > 0) {
+      const box = new THREE.Box3().setFromObject(group);
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      box.getSize(size);
+      box.getCenter(center);
+      // сдвигаем группу в центр, чтобы объект был около (0,0,0)
+      group.position.sub(center);
+      const recalcBox = new THREE.Box3().setFromObject(group);
+      const recalcCenter = new THREE.Vector3();
+      const recalcSize = new THREE.Vector3();
+      recalcBox.getCenter(recalcCenter);
+      recalcBox.getSize(recalcSize);
+      const maxDim = Math.max(recalcSize.x, recalcSize.y, recalcSize.z) || 1;
+      const distance = Math.max(maxDim * 1.2, 10);
+      controls.target.copy(recalcCenter);
+      camera.position.set(recalcCenter.x + distance, recalcCenter.y + distance, recalcCenter.z + distance);
+      camera.lookAt(center);
+      camera.near = 0.01;
+      camera.far = distance * 10;
+      camera.updateProjectionMatrix();
+      controls.update();
+      console.log('Bounding box', { size: recalcSize, center: recalcCenter, distance });
+    }
+
+    console.log(
+      '3D objects in group:',
+      group.children.length,
+      group.children.map((c, idx) => ({
+        idx,
+        id: (c as any).userData?.planObjectId,
+        pos: { x: c.position.x, y: c.position.y, z: c.position.z },
+      })),
+    );
   };
 
   const buildWallsFromPlan = (
@@ -188,28 +239,40 @@ const Plan3DViewer = ({ plan, onPlanChange }: Plan3DViewerProps) => {
     scale: number,
   ) => {
     const safeScale = scale > 0 ? scale : 100;
-    planData.elements
-      .filter((el) => el.type === 'wall' && el.geometry.kind === 'segment' && el.geometry.start && el.geometry.end)
-      .forEach((wall) => {
-        const { start, end } = wall.geometry;
-        if (!start || !end) return;
-        const dx = safeNumber(end.x) - safeNumber(start.x);
-        const dy = safeNumber(end.y) - safeNumber(start.y);
-        const lengthPx = Math.sqrt(dx * dx + dy * dy);
-        const length = lengthPx / scale;
-        if (!Number.isFinite(length)) return;
-        const midX = (safeNumber(start.x) + safeNumber(end.x)) / 2;
-        const midY = (safeNumber(start.y) + safeNumber(end.y)) / 2;
-        const center3d = from2DTo3D(midX, midY, safeScale);
-        const geo = new THREE.BoxGeometry(length, defaultHeight, wallThickness);
-        const material = new THREE.MeshStandardMaterial({
-          color: wall.geometry.loadBearing ? 0x475569 : 0x9ca3af,
-        });
-        const mesh = new THREE.Mesh(geo, material);
-        mesh.position.set(center3d.x, defaultHeight / 2, center3d.z);
-        mesh.rotation.y = -Math.atan2(dy, dx);
-        group.add(mesh);
+    const walls = planData.elements.filter(
+      (el) =>
+        el.type === 'wall' &&
+        (el as any).geometry?.kind === 'segment' &&
+        Array.isArray((el as any).geometry?.points) &&
+        (el as any).geometry.points.length >= 4,
+    );
+    console.log('Walls found:', walls.length);
+    walls.forEach((el) => {
+      const wall = el as WallElement;
+      const pts = wall.geometry.points as number[];
+      const [x1, y1, x2, y2] = pts;
+      const dx = safeNumber(x2) - safeNumber(x1);
+      const dy = safeNumber(y2) - safeNumber(y1);
+      const lengthPx = Math.sqrt(dx * dx + dy * dy);
+      const length = lengthPx / safeScale;
+      if (!Number.isFinite(length)) return;
+      const midX = (safeNumber(x1) + safeNumber(x2)) / 2;
+      const midY = (safeNumber(y1) + safeNumber(y2)) / 2;
+      const center3d = from2DTo3D(midX, midY, safeScale);
+      const thicknessMeters =
+        wall.thickness != null
+          ? safeNumber(wall.thickness, wallThickness * safeScale) / safeScale
+          : wallThickness;
+      const geo = new THREE.BoxGeometry(length, defaultHeight, thicknessMeters);
+      const isLoadBearing = !!wall.loadBearing;
+      const material = new THREE.MeshStandardMaterial({
+        color: isLoadBearing ? 0x4b5563 : 0x9ca3af,
       });
+      const mesh = new THREE.Mesh(geo, material);
+      mesh.position.set(center3d.x, defaultHeight / 2, center3d.z);
+      mesh.rotation.y = -Math.atan2(dy, dx);
+      group.add(mesh);
+    });
   };
 
   const buildZonesFromPlan = (
@@ -218,58 +281,70 @@ const Plan3DViewer = ({ plan, onPlanChange }: Plan3DViewerProps) => {
     scale: number,
   ) => {
     const safeScale = scale > 0 ? scale : 100;
-    planData.elements
-      .filter((el) => el.type === 'zone' && el.geometry.kind === 'polygon' && el.geometry.points?.length)
-      .forEach((zone) => {
-        const pts = (zone.geometry.points || []).filter(
-          (p) => Number.isFinite(p.x) && Number.isFinite(p.y),
-        );
-        if (pts.length < 3) return;
-        const shape = new THREE.Shape();
-        pts.forEach((p, idx) => {
-          const mapped = from2DTo3D(p.x, p.y, safeScale);
-          if (idx === 0) shape.moveTo(mapped.x, mapped.z);
-          else shape.lineTo(mapped.x, mapped.z);
-        });
-        const geometry = new THREE.ShapeGeometry(shape);
-        geometry.rotateX(-Math.PI / 2);
-        const material = new THREE.MeshStandardMaterial({
-          color: zone.geometry.zoneType ? 0xcbd5e1 : 0xe2e8f0,
-          opacity: 0.8,
-          transparent: true,
-          side: THREE.DoubleSide,
-        });
-        const mesh = new THREE.Mesh(geometry, material);
-        group.add(mesh);
+    const zones = planData.elements.filter(
+      (el) =>
+        el.type === 'zone' &&
+        (el as any).geometry?.kind === 'polygon' &&
+        Array.isArray((el as any).geometry?.points) &&
+        (el as any).geometry.points.length >= 6,
+    );
+    console.log('Zones found:', zones.length);
+    zones.forEach((el) => {
+      const zone = el as ZoneElement;
+      const raw = zone.geometry.points as number[];
+      const pts: { x: number; y: number }[] = [];
+      for (let i = 0; i + 1 < raw.length; i += 2) {
+        pts.push({ x: safeNumber(raw[i]), y: safeNumber(raw[i + 1]) });
+      }
+      if (pts.length < 3) return;
+      const shape = new THREE.Shape();
+      pts.forEach((p, idx) => {
+        const mapped = from2DTo3D(p.x, p.y, safeScale);
+        if (idx === 0) shape.moveTo(mapped.x, mapped.z);
+        else shape.lineTo(mapped.x, mapped.z);
       });
-  };
-
-  const buildObjects = (planData: PlanGeometry, group: THREE.Group) => {
-    (planData.objects3d || []).forEach((obj) => {
-      const size = obj.size || { x: 1, y: 1, z: 1 };
-      const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
-      const color = getColorForType(obj.type);
-      const material = new THREE.MeshStandardMaterial({ color });
+      const geometry = new THREE.ShapeGeometry(shape);
+      geometry.rotateX(-Math.PI / 2);
+      const zoneType = zone.zoneType;
+      const material = new THREE.MeshStandardMaterial({
+        color: zoneType ? 0x22c55e : 0xe2e8f0,
+        opacity: 0.8,
+        transparent: true,
+        side: THREE.DoubleSide,
+      });
       const mesh = new THREE.Mesh(geometry, material);
-      mesh.position.set(obj.position.x, obj.position.y ?? size.y / 2, obj.position.z);
-      if (obj.rotation?.y) mesh.rotation.y = obj.rotation.y;
-      (mesh as any).userData.planObjectId = obj.id;
       group.add(mesh);
     });
   };
 
-  const getColorForType = (type: string) => {
-    switch (type) {
-      case 'sofa':
-        return 0x38bdf8;
-      case 'table':
-        return 0x22c55e;
-      case 'wardrobe':
-        return 0xf59e0b;
-      case 'bed':
-        return 0xa855f7;
-      default:
-        return 0x94a3b8;
+  const buildObjects = (planData: PlanGeometry, group: THREE.Group) => {
+    const palette = [0xff3b30, 0x22c55e, 0x3b82f6, 0xf59e0b, 0xa855f7];
+    (planData.objects3d || []).forEach((obj, idx) => {
+      const geometry = new THREE.BoxGeometry(2, 2, 2);
+      const material = new THREE.MeshStandardMaterial({
+        color: palette[idx % palette.length],
+      });
+      const mesh = new THREE.Mesh(geometry, material);
+      const x = safeNumber(obj.position?.x, 0);
+      const z = safeNumber(obj.position?.z, 0);
+      const yRaw = safeNumber(obj.position?.y, 1);
+      const y = yRaw === 0 ? 1 : yRaw;
+      mesh.position.set(x, y, z);
+      (mesh as any).userData.planObjectId = obj.id || `obj_${idx}`;
+      group.add(mesh);
+    });
+    // Добавляем пару фиктивных кубов для отладки, чтобы всегда видеть несколько объектов
+    for (let i = 0; i < 3; i++) {
+      const geometry = new THREE.BoxGeometry(2, 2, 2);
+      const material = new THREE.MeshStandardMaterial({
+        color: palette[(planData.objects3d?.length || 0 + i) % palette.length],
+        opacity: 0.6,
+        transparent: true,
+      });
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(i * 3, 1, -i * 3);
+      (mesh as any).userData.planObjectId = `debug_${i}`;
+      group.add(mesh);
     }
   };
 

@@ -78,7 +78,7 @@ export interface OrderPlanVersion {
   id: string;
   orderId: string;
   versionType: string;
-  plan: Record<string, unknown>;
+  plan: PlanGeometry;
 }
 
 export interface OrderStatusHistoryItem {
@@ -170,28 +170,44 @@ export interface ClientChatThread {
   updatedAt: string;
 }
 
+export interface SegmentGeometry {
+  kind: 'segment';
+  points: number[]; // [x1, y1, x2, y2]
+}
+
+export interface PolygonGeometry {
+  kind: 'polygon';
+  points: number[]; // [x1, y1, ..., xn, yn]
+}
+
+export type Geometry = SegmentGeometry | PolygonGeometry;
+
+export interface WallElement {
+  id: string;
+  type: 'wall';
+  role: 'EXISTING' | 'TO_DELETE' | 'NEW' | 'MODIFIED';
+  loadBearing?: boolean | null;
+  thickness?: number | null;
+  geometry: SegmentGeometry;
+}
+
+export interface ZoneElement {
+  id: string;
+  type: 'zone';
+  zoneType: string;
+  relatedTo?: string[] | null;
+  geometry: PolygonGeometry;
+}
+
+// Extendable for door/window/label if понадобится
+export type PlanElement = WallElement | ZoneElement;
+
 export interface PlanMeta {
   width: number;
   height: number;
   unit: 'px';
-  scale: {
-    px_per_meter: number;
-  };
-  background?: Record<string, unknown>;
-}
-
-export interface PlanElement {
-  id: string;
-  type: 'wall' | 'zone' | 'door' | 'window' | 'label';
-  properties?: Record<string, unknown>;
-  geometry: {
-    kind: 'segment' | 'polygon';
-    start?: { x: number; y: number };
-    end?: { x: number; y: number };
-    points?: { x: number; y: number }[];
-    loadBearing?: boolean;
-    zoneType?: string;
-  };
+  scale: { px_per_meter: number };
+  background?: any;
 }
 
 export interface PlanObject3D {
