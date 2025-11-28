@@ -19,11 +19,13 @@ from app.models.order import (
 from app.models.user import User
 from app.schemas.orders import CreateOrderRequest, UpdateOrderRequest, SavePlanChangesRequest
 from app.services import user_service
+from app.services.price_calculator import calculate_order_price
 from app.services.user_service import ensure_client_profile
 
 
 def create_order(db: Session, client: User, data: CreateOrderRequest) -> Order:
     ensure_client_profile(db, client)
+    calculator_data = data.calculator_input or {}
     order = Order(
         client_id=client.id,
         service_code=data.service_code,
@@ -34,8 +36,10 @@ def create_order(db: Session, client: User, data: CreateOrderRequest) -> Order:
         description=data.description,
         address=data.address,
         status=OrderStatus.SUBMITTED,
-        calculator_input=data.calculator_input or {},
+        calculator_input=calculator_data,
     )
+    estimated, _ = calculate_order_price(db, order, calculator_data)
+    order.estimated_price = estimated
     db.add(order)
     db.flush()
     history = OrderStatusHistory(
@@ -67,11 +71,13 @@ def update_order_by_client(db: Session, order: Order, data: UpdateOrderRequest) 
         "address",
         "district_code",
         "house_type_code",
-        "calculator_input",
     ]:
         value = getattr(data, field)
         if value is not None:
             setattr(order, field, value)
+    if data.calculator_input is not None:
+        order.calculator_input = data.calculator_input
+    order.estimated_price, _ = calculate_order_price(db, order, order.calculator_input or {})
     db.add(order)
     db.commit()
     db.refresh(order)

@@ -11,6 +11,7 @@ import {
   subtleButtonClass,
   textareaClass,
 } from '../../components/ui';
+import Plan3DViewer from '../../components/Plan3DViewer';
 import type {
   AiAnalysis,
   ChatMessagePairResponse,
@@ -19,9 +20,11 @@ import type {
   OrderFile,
   OrderPlanVersion,
   OrderStatusHistoryItem,
+  PlanGeometry,
 } from '../../types';
 
 type TabKey = 'info' | 'files' | 'plan' | 'history' | 'chat';
+type PlanViewMode = 'json' | '3d';
 
 const ClientOrderDetailsPage = () => {
   const { orderId } = useParams();
@@ -30,8 +33,10 @@ const ClientOrderDetailsPage = () => {
   const [files, setFiles] = useState<OrderFile[]>([]);
   const [statusHistory, setStatusHistory] = useState<OrderStatusHistoryItem[]>([]);
   const [plan, setPlan] = useState<OrderPlanVersion | null>(null);
+  const [planData, setPlanData] = useState<PlanGeometry | null>(null);
   const [planVersionType, setPlanVersionType] = useState<'ORIGINAL' | 'MODIFIED'>('MODIFIED');
   const [planContent, setPlanContent] = useState('{}');
+  const [planViewMode, setPlanViewMode] = useState<PlanViewMode>('json');
   const [chatMessages, setChatMessages] = useState<OrderChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [analysis, setAnalysis] = useState<AiAnalysis | null>(null);
@@ -61,18 +66,26 @@ const ClientOrderDetailsPage = () => {
 
   const loadFiles = async () => {
     if (!orderId || !token) return;
-    const data = await apiFetch<OrderFile[]>(`/orders/${orderId}/files`, {}, token);
+    const data = await apiFetch<OrderFile[]>(`/client/orders/${orderId}/files`, {}, token);
     setFiles(data);
   };
 
   const loadPlan = async () => {
     if (!orderId || !token) return;
     try {
-      const data = await apiFetch<OrderPlanVersion>(`/orders/${orderId}/plan`, {}, token);
+      const data = await apiFetch<OrderPlanVersion>(`/client/orders/${orderId}/plan`, {}, token);
       setPlan(data);
-      setPlanContent(JSON.stringify(data.plan ?? {}, null, 2));
+      const geometry = data.plan as unknown;
+      if (geometry && typeof geometry === 'object' && (geometry as any).meta && (geometry as any).elements) {
+        setPlanData(geometry as PlanGeometry);
+        setPlanContent(JSON.stringify(geometry, null, 2));
+      } else {
+        setPlanData(null);
+        setPlanContent(JSON.stringify(data.plan ?? {}, null, 2));
+      }
     } catch {
       setPlan(null);
+      setPlanData(null);
     }
   };
 
@@ -80,7 +93,7 @@ const ClientOrderDetailsPage = () => {
     if (!orderId || !token) return;
     try {
       const data = await apiFetch<OrderStatusHistoryItem[]>(
-        `/orders/${orderId}/status-history`,
+        `/client/orders/${orderId}/status-history`,
         {},
         token,
       );
@@ -103,7 +116,7 @@ const ClientOrderDetailsPage = () => {
   const loadAnalysis = async () => {
     if (!orderId || !token) return;
     try {
-      const data = await apiFetch<AiAnalysis>(`/orders/${orderId}/ai/analysis`, {}, token);
+      const data = await apiFetch<AiAnalysis>(`/client/orders/${orderId}/ai/analysis`, {}, token);
       setAnalysis(data);
     } catch {
       setAnalysis(null);
@@ -115,11 +128,15 @@ const ClientOrderDetailsPage = () => {
     if (!orderId || !token || !fileToUpload) return;
     const formData = new FormData();
     formData.append('file', fileToUpload);
-    await apiFetch<OrderFile>(`/orders/${orderId}/files`, {
-      method: 'POST',
-      data: formData,
-      isFormData: true,
-    }, token);
+    await apiFetch<OrderFile>(
+      `/client/orders/${orderId}/files`,
+      {
+        method: 'POST',
+        data: formData,
+        isFormData: true,
+      },
+      token,
+    );
     setMessage('Файл загружен');
     setFileToUpload(null);
     await loadFiles();
@@ -131,7 +148,7 @@ const ClientOrderDetailsPage = () => {
     try {
       const parsed = planContent ? JSON.parse(planContent) : {};
       await apiFetch<OrderPlanVersion>(
-        `/orders/${orderId}/plan/changes`,
+        `/client/orders/${orderId}/plan/changes`,
         {
           method: 'POST',
           data: { versionType: planVersionType, plan: parsed },
@@ -149,10 +166,14 @@ const ClientOrderDetailsPage = () => {
     e.preventDefault();
     if (!orderId || !token || !chatInput) return;
     try {
-      const data = await apiFetch<ChatMessagePairResponse>(`/orders/${orderId}/chat`, {
-        method: 'POST',
-        data: { message: chatInput },
-      }, token);
+      const data = await apiFetch<ChatMessagePairResponse>(
+        `/orders/${orderId}/chat`,
+        {
+          method: 'POST',
+          data: { message: chatInput },
+        },
+        token,
+      );
       const newMessages = [
         ...(data.userMessage ? [data.userMessage] : []),
         ...(data.aiMessage ? [data.aiMessage] : []),
@@ -167,12 +188,17 @@ const ClientOrderDetailsPage = () => {
   const requestAnalysis = async () => {
     if (!orderId || !token) return;
     try {
-      await apiFetch(`/orders/${orderId}/ai/analyze`, { method: 'POST' }, token);
+      await apiFetch(`/client/orders/${orderId}/ai/analyze`, { method: 'POST' }, token);
       await loadAnalysis();
       setMessage('Запрос на анализ отправлен');
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Ошибка анализа');
     }
+  };
+
+  const handlePlanChange = (updated: PlanGeometry) => {
+    setPlanData(updated);
+    setPlanContent(JSON.stringify(updated, null, 2));
   };
 
   return (
@@ -255,39 +281,69 @@ const ClientOrderDetailsPage = () => {
 
       {tab === 'plan' && (
         <div className={cardClass}>
-          <h4 className={sectionTitleClass}>План заказа</h4>
-          {plan ? (
-            <pre className="mt-2 whitespace-pre-wrap text-xs">
-              {JSON.stringify(plan, null, 2)}
-            </pre>
-          ) : (
-            <p className="text-sm text-slate-600">План не найден</p>
-          )}
-          <form className="mt-3 space-y-2" onSubmit={savePlan}>
-            <label className="text-sm text-slate-700">
-              Версия
-              <select
-                className={`${inputClass} mt-1`}
-                value={planVersionType}
-                onChange={(e) => setPlanVersionType(e.target.value as 'ORIGINAL' | 'MODIFIED')}
+          <div className="flex items-center justify-between">
+            <h4 className={sectionTitleClass}>План заказа</h4>
+            <div className="flex gap-2">
+              <button
+                className={`${subtleButtonClass} ${planViewMode === 'json' ? 'bg-slate-100' : ''}`}
+                onClick={() => setPlanViewMode('json')}
               >
-                <option value="ORIGINAL">ORIGINAL</option>
-                <option value="MODIFIED">MODIFIED</option>
-              </select>
-            </label>
-            <label className="text-sm text-slate-700">
-              JSON
-              <textarea
-                className={`${textareaClass} mt-1`}
-                rows={8}
-                value={planContent}
-                onChange={(e) => setPlanContent(e.target.value)}
-              />
-            </label>
-            <button type="submit" className={buttonClass}>
-              Сохранить изменения
-            </button>
-          </form>
+                JSON
+              </button>
+              <button
+                className={`${subtleButtonClass} ${planViewMode === '3d' ? 'bg-slate-100' : ''}`}
+                onClick={() => setPlanViewMode('3d')}
+              >
+                3D
+              </button>
+            </div>
+          </div>
+
+          {planViewMode === 'json' && (
+            <>
+              {plan ? (
+                <pre className="mt-2 whitespace-pre-wrap text-xs">
+                  {JSON.stringify(plan, null, 2)}
+                </pre>
+              ) : (
+                <p className="text-sm text-slate-600">План не найден</p>
+              )}
+              <form className="mt-3 space-y-2" onSubmit={savePlan}>
+                <label className="text-sm text-slate-700">
+                  Версия
+                  <select
+                    className={`${inputClass} mt-1`}
+                    value={planVersionType}
+                    onChange={(e) => setPlanVersionType(e.target.value as 'ORIGINAL' | 'MODIFIED')}
+                  >
+                    <option value="ORIGINAL">ORIGINAL</option>
+                    <option value="MODIFIED">MODIFIED</option>
+                  </select>
+                </label>
+                <label className="text-sm text-slate-700">
+                  JSON
+                  <textarea
+                    className={`${textareaClass} mt-1`}
+                    rows={8}
+                    value={planContent}
+                    onChange={(e) => setPlanContent(e.target.value)}
+                  />
+                </label>
+                <button type="submit" className={buttonClass}>
+                  Сохранить изменения
+                </button>
+              </form>
+            </>
+          )}
+
+          {planViewMode === '3d' && planData ? (
+            <div className="mt-3">
+              <Plan3DViewer plan={planData} onPlanChange={handlePlanChange} />
+            </div>
+          ) : null}
+          {planViewMode === '3d' && !planData && (
+            <p className="mt-2 text-sm text-slate-600">Нет данных плана для отображения.</p>
+          )}
         </div>
       )}
 
