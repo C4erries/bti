@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin, get_db_session
@@ -448,3 +448,32 @@ def get_all_plan_versions(
         raise HTTPException(status_code=404, detail="Order not found")
     versions = order_service.get_plan_versions(db, order_id)
     return [OrderPlanVersionSchema.model_validate(v) for v in versions]
+
+
+@router.post("/orders/{order_id}/files", response_model=OrderFileSchema, status_code=201, summary="Загрузить файл к заказу")
+def upload_file(
+    order_id: uuid.UUID,
+    upload: UploadFile = File(...),
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
+) -> OrderFileSchema:
+    """Загрузить файл к заказу (админ)"""
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    file = order_service.add_file(db, order, upload, uploaded_by=admin)
+    return OrderFileSchema.model_validate(file)
+
+
+@router.get("/orders/{order_id}/files", response_model=list[OrderFileSchema], summary="Список файлов заказа")
+def get_files(
+    order_id: uuid.UUID,
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
+) -> list[OrderFileSchema]:
+    """Получить список файлов заказа (админ)"""
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    files = order_service.get_order_files(db, order_id)
+    return [OrderFileSchema.model_validate(f) for f in files]
