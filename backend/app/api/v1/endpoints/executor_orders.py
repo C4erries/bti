@@ -39,49 +39,8 @@ def _ensure_executor(user):
         raise HTTPException(status_code=403, detail="Executor profile required")
 
 
-@router.get("/orders", response_model=list[ExecutorOrderListItem])
-def list_executor_orders(
-    status: str | None = Query(default=None),
-    department_code: str | None = Query(default=None),
-    db: Session = Depends(get_db_session),
-    current_user=Depends(get_current_user),
-) -> list[ExecutorOrderListItem]:
-    _ensure_executor(current_user)
-    status_map = {
-        "NEW": [OrderStatus.SUBMITTED, OrderStatus.EXECUTOR_ASSIGNED],
-        "IN_PROGRESS": [OrderStatus.VISIT_SCHEDULED, OrderStatus.DOCUMENTS_IN_PROGRESS],
-        "DONE": [OrderStatus.COMPLETED],
-    }
-    status_filters = status_map.get(status) if status else None
-    # Для суперадмина получаем все заказы, для обычного исполнителя - только его заказы
-    executor_id = None if current_user.is_superadmin else current_user.id
-    orders = order_service.get_executor_orders(db, executor_id, status_filters, department_code)
-    return [
-        ExecutorOrderListItem(
-            id=o.id,
-            status=o.status.value,
-            serviceTitle=o.service.title if o.service else "",
-            totalPrice=o.total_price,
-            createdAt=o.created_at,
-            complexity=o.complexity,
-            address=o.address,
-            departmentCode=o.current_department_code,
-        )
-        for o in orders
-    ]
-
-
-@router.get("/orders/{order_id}", response_model=ExecutorOrderDetails)
-def get_order(
-    order_id: uuid.UUID,
-    db: Session = Depends(get_db_session),
-    current_user=Depends(get_current_user),
-) -> ExecutorOrderDetails:
-    _ensure_executor(current_user)
-    order = order_service.get_order(db, order_id)
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    
+def _build_executor_order_details(db: Session, order, order_id: uuid.UUID) -> ExecutorOrderDetails:
+    """Вспомогательная функция для построения ExecutorOrderDetails из заказа"""
     try:
         # Получаем версии планов безопасно
         plan_versions = getattr(order, 'plan_versions', []) or []
@@ -154,9 +113,54 @@ def get_order(
         )
     except Exception as e:
         import traceback
-        print(f"Error in get_order executor endpoint: {e}")
+        print(f"Error in _build_executor_order_details: {e}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Error retrieving order details: {str(e)}")
+
+
+@router.get("/orders", response_model=list[ExecutorOrderListItem])
+def list_executor_orders(
+    status: str | None = Query(default=None),
+    department_code: str | None = Query(default=None),
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+) -> list[ExecutorOrderListItem]:
+    _ensure_executor(current_user)
+    status_map = {
+        "NEW": [OrderStatus.SUBMITTED, OrderStatus.EXECUTOR_ASSIGNED],
+        "IN_PROGRESS": [OrderStatus.VISIT_SCHEDULED, OrderStatus.DOCUMENTS_IN_PROGRESS],
+        "DONE": [OrderStatus.COMPLETED],
+    }
+    status_filters = status_map.get(status) if status else None
+    # Для суперадмина получаем все заказы, для обычного исполнителя - только его заказы
+    executor_id = None if current_user.is_superadmin else current_user.id
+    orders = order_service.get_executor_orders(db, executor_id, status_filters, department_code)
+    return [
+        ExecutorOrderListItem(
+            id=o.id,
+            status=o.status.value,
+            serviceTitle=o.service.title if o.service else "",
+            totalPrice=o.total_price,
+            createdAt=o.created_at,
+            complexity=o.complexity,
+            address=o.address,
+            departmentCode=o.current_department_code,
+        )
+        for o in orders
+    ]
+
+
+@router.get("/orders/{order_id}", response_model=ExecutorOrderDetails)
+def get_order(
+    order_id: uuid.UUID,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+) -> ExecutorOrderDetails:
+    _ensure_executor(current_user)
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return _build_executor_order_details(db, order, order_id)
 
 
 @router.post("/orders/{order_id}/take", response_model=ExecutorOrderDetails)
@@ -171,7 +175,7 @@ def take_order(
         raise HTTPException(status_code=404, detail="Order not found")
     order_service.executor_take_order(db, order, current_user)
     db.refresh(order)
-    return get_order(order_id, db, current_user)
+    return _build_executor_order_details(db, order, order_id)
 
 
 @router.post("/orders/{order_id}/decline", response_model=ExecutorOrderDetails)
@@ -186,7 +190,7 @@ def decline_order(
         raise HTTPException(status_code=404, detail="Order not found")
     order_service.executor_decline_order(db, order, current_user)
     db.refresh(order)
-    return get_order(order_id, db, current_user)
+    return _build_executor_order_details(db, order, order_id)
 
 
 @router.get("/orders/{order_id}/files", response_model=list[OrderFile])
