@@ -9,7 +9,14 @@ import {
   textareaClass,
 } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
-import type { District, HouseType, PriceEstimateResponse, Service } from '../../types';
+import type {
+  CalculatorInput,
+  District,
+  HouseType,
+  PriceCalculatorRequest,
+  PriceEstimateResponse,
+  Service,
+} from '../../types';
 
 interface CalculatorState {
   area: string;
@@ -73,7 +80,7 @@ const PriceCalculatorPage = () => {
     setError(null);
     setEstimate(null);
     try {
-      const calculatorInput: Record<string, unknown> = {};
+      const calculatorInput: CalculatorInput = {};
       if (calculator.area) calculatorInput.area = Number(calculator.area);
       calculatorInput.works = {
         walls: calculator.walls,
@@ -87,7 +94,7 @@ const PriceCalculatorPage = () => {
       calculatorInput.urgent = calculator.urgent;
       if (calculator.notes) calculatorInput.notes = calculator.notes;
 
-      const payload = {
+      const payload: PriceCalculatorRequest = {
         serviceCode: Number(form.serviceCode),
         districtCode: form.districtCode || null,
         houseTypeCode: form.houseTypeCode || null,

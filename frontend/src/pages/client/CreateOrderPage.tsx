@@ -9,7 +9,18 @@ import {
   textareaClass,
 } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
-import type { District, HouseType, Order, Service } from '../../types';
+import type { CalculatorInput, District, HouseType, Order, Service } from '../../types';
+
+type CalculatorFormState = {
+  area: string;
+  walls: boolean;
+  wetZone: boolean;
+  doorways: boolean;
+  hasBasement: boolean;
+  joinApartments: boolean;
+  urgent: boolean;
+  notes: string;
+};
 
 const CreateOrderPage = () => {
   const { token } = useAuth();
@@ -28,9 +39,13 @@ const CreateOrderPage = () => {
     houseTypeCode: '',
   });
 
-  const [calculator, setCalculator] = useState({
+  const [calculator, setCalculator] = useState<CalculatorFormState>({
     area: '',
+    walls: true,
+    wetZone: false,
+    doorways: true,
     hasBasement: false,
+    joinApartments: false,
     urgent: false,
     notes: '',
   });
@@ -60,9 +75,17 @@ const CreateOrderPage = () => {
     }
     setMessage(null);
     try {
-      const calculatorInput: Record<string, unknown> = {};
+      const calculatorInput: CalculatorInput = {};
       if (calculator.area) calculatorInput.area = Number(calculator.area);
-      calculatorInput.hasBasement = calculator.hasBasement;
+      calculatorInput.works = {
+        walls: calculator.walls,
+        wet_zone: calculator.wetZone,
+        doorways: calculator.doorways,
+      };
+      calculatorInput.features = {
+        basement: calculator.hasBasement,
+        join_apartments: calculator.joinApartments,
+      };
       calculatorInput.urgent = calculator.urgent;
       if (calculator.notes) calculatorInput.notes = calculator.notes;
 
@@ -183,8 +206,8 @@ const CreateOrderPage = () => {
         </div>
 
         <div className="rounded-lg border border-slate-200 p-3">
-          <p className="text-sm font-semibold text-slate-800">Калькулятор</p>
-          <div className="mt-2 grid gap-3 lg:grid-cols-4">
+          <p className="text-sm font-semibold text-slate-800">Расчёт стоимости</p>
+          <div className="mt-2 grid gap-3 lg:grid-cols-3">
             <label className="text-sm font-medium text-slate-700">
               Площадь (м²)
               <input
@@ -192,6 +215,30 @@ const CreateOrderPage = () => {
                 value={calculator.area}
                 onChange={(e) => setCalculator((p) => ({ ...p, area: e.target.value }))}
               />
+            </label>
+            <label className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={calculator.walls}
+                onChange={(e) => setCalculator((p) => ({ ...p, walls: e.target.checked }))}
+              />
+              Стены (перенос/монтаж)
+            </label>
+            <label className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={calculator.wetZone}
+                onChange={(e) => setCalculator((p) => ({ ...p, wetZone: e.target.checked }))}
+              />
+              Влажные зоны
+            </label>
+            <label className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={calculator.doorways}
+                onChange={(e) => setCalculator((p) => ({ ...p, doorways: e.target.checked }))}
+              />
+              Проёмы
             </label>
             <label className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
               <input
@@ -204,12 +251,20 @@ const CreateOrderPage = () => {
             <label className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
               <input
                 type="checkbox"
+                checked={calculator.joinApartments}
+                onChange={(e) => setCalculator((p) => ({ ...p, joinApartments: e.target.checked }))}
+              />
+              Объединение квартир
+            </label>
+            <label className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input
+                type="checkbox"
                 checked={calculator.urgent}
                 onChange={(e) => setCalculator((p) => ({ ...p, urgent: e.target.checked }))}
               />
               Срочно
             </label>
-            <label className="text-sm font-medium text-slate-700 lg:col-span-1">
+            <label className="text-sm font-medium text-slate-700 lg:col-span-3">
               Особенности
               <textarea
                 className={`${textareaClass} mt-1`}

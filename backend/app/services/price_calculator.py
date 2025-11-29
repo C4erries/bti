@@ -14,7 +14,13 @@ def calculate_price(
     house_type_code: str | None,
     calculator_input: dict | None,
 ) -> tuple[float, PriceBreakdown]:
-    calc = calculator_input or {}
+    calc = dict(calculator_input or {})
+
+    # Backward compatibility: старые заказы могли присылать hasBasement на верхнем уровне
+    features = dict(calc.get("features") or {})
+    if "hasBasement" in calc and "basement" not in features:
+        features["basement"] = bool(calc.get("hasBasement"))
+    calc["features"] = features
 
     service = db.get(Service, service_code) if service_code else None
     base = float(service.base_price) if service and service.base_price is not None else 0.0

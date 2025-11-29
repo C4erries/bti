@@ -228,6 +228,32 @@ export interface PlanGeometry {
   objects3d?: PlanObject3D[];
 }
 
+export interface CalculatorWorks {
+  walls?: boolean;
+  wet_zone?: boolean;
+  doorways?: boolean;
+}
+
+export interface CalculatorFeatures {
+  basement?: boolean;
+  join_apartments?: boolean;
+}
+
+export interface CalculatorInput {
+  area?: number;
+  works?: CalculatorWorks;
+  features?: CalculatorFeatures;
+  urgent?: boolean;
+  notes?: string;
+}
+
+export interface PriceCalculatorRequest {
+  serviceCode: number;
+  districtCode?: string | null;
+  houseTypeCode?: string | null;
+  calculatorInput?: CalculatorInput | null;
+}
+
 export interface PriceBreakdown {
   baseComponent: number;
   worksComponent: number;

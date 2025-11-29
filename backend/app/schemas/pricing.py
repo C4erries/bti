@@ -7,7 +7,30 @@ class PriceCalculatorInput(BaseModel):
     house_type_code: str | None = Field(default=None, alias="houseTypeCode")
     calculator_input: dict | None = Field(default=None, alias="calculatorInput")
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(
+        populate_by_name=True,
+        json_schema_extra={
+            "example": {
+                "serviceCode": 101,
+                "districtCode": "CENTRAL",
+                "houseTypeCode": "PANEL",
+                "calculatorInput": {
+                    "area": 52.3,
+                    "works": {
+                        "walls": True,
+                        "wet_zone": True,
+                        "doorways": False,
+                    },
+                    "features": {
+                        "basement": False,
+                        "join_apartments": True,
+                    },
+                    "urgent": True,
+                    "notes": "Комментарий клиента о перепланировке",
+                },
+            }
+        },
+    )
 
 
 class PriceBreakdown(BaseModel):
