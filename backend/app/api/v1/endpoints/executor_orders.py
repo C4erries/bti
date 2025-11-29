@@ -32,6 +32,9 @@ router = APIRouter(prefix="/executor", tags=["Executor"])
 
 
 def _ensure_executor(user):
+    """Проверка, что пользователь является исполнителем или суперадмином"""
+    if user.is_superadmin:
+        return  # Суперадмин имеет доступ ко всем методам
     if not user.executor_profile:
         raise HTTPException(status_code=403, detail="Executor profile required")
 
@@ -50,7 +53,9 @@ def list_executor_orders(
         "DONE": [OrderStatus.COMPLETED],
     }
     status_filters = status_map.get(status) if status else None
-    orders = order_service.get_executor_orders(db, current_user.id, status_filters, department_code)
+    # Для суперадмина получаем все заказы, для обычного исполнителя - только его заказы
+    executor_id = None if current_user.is_superadmin else current_user.id
+    orders = order_service.get_executor_orders(db, executor_id, status_filters, department_code)
     return [
         ExecutorOrderListItem(
             id=o.id,
