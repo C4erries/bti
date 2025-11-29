@@ -611,11 +611,20 @@ def update_visit(
     return event
 
 
-def get_executor_calendar(db: Session, executor_id: uuid.UUID) -> list[ExecutorCalendarEvent]:
-    return list(
-        db.scalars(
-            select(ExecutorCalendarEvent).where(
-                ExecutorCalendarEvent.executor_id == executor_id
+def get_executor_calendar(db: Session, executor_id: uuid.UUID | None) -> list[ExecutorCalendarEvent]:
+    """
+    Получить календарь исполнителя.
+    Если executor_id = None (для суперадмина), возвращает все события календаря.
+    """
+    if executor_id is None:
+        # Для суперадмина - все события
+        return list(db.scalars(select(ExecutorCalendarEvent)))
+    else:
+        # Для обычного исполнителя - только его события
+        return list(
+            db.scalars(
+                select(ExecutorCalendarEvent).where(
+                    ExecutorCalendarEvent.executor_id == executor_id
+                )
             )
         )
-    )

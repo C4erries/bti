@@ -13,7 +13,10 @@ def get_calendar(
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
 ) -> list[ExecutorCalendarEvent]:
-    if not current_user.executor_profile:
+    # Суперадмин имеет доступ ко всем событиям календаря
+    if not current_user.is_superadmin and not current_user.executor_profile:
         raise HTTPException(status_code=403, detail="Executor profile required")
-    events = order_service.get_executor_calendar(db, current_user.id)
+    # Для суперадмина передаем None, чтобы получить все события
+    executor_id = None if current_user.is_superadmin else current_user.id
+    events = order_service.get_executor_calendar(db, executor_id)
     return [ExecutorCalendarEvent.model_validate(e) for e in events]
