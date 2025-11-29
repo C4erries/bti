@@ -330,15 +330,15 @@ const AdminOrdersPage = () => {
             <thead className="bg-slate-100 text-left">
               <tr>
                 <th className="px-4 py-3 font-semibold">ID</th>
-                <th className="px-4 py-3 font-semibold">??????</th>
-                <th className="px-4 py-3 font-semibold">???????????</th>
-                <th className="px-4 py-3 font-semibold">????????</th>
-                <th className="px-4 py-3 font-semibold">????????</th>
-                <th className="px-4 py-3 font-semibold text-center">?????</th>
-                <th className="px-4 py-3 font-semibold">???? ????????</th>
-                <th className="px-4 py-3 font-semibold">???? ??????</th>
-                <th className="px-4 py-3 font-semibold">???????????</th>
-                <th className="px-4 py-3 font-semibold">??????</th>
+                 <th className="px-4 py-3 font-semibold">Клиент</th>
+                 <th className="px-4 py-3 font-semibold">Исполнитель</th>
+                 <th className="px-4 py-3 font-semibold">Тип работы</th>
+                 <th className="px-4 py-3 font-semibold">Описание</th>
+                 <th className="px-4 py-3 font-semibold text-center">Файлы</th>
+                 <th className="px-4 py-3 font-semibold">Дата создания</th>
+                 <th className="px-4 py-3 font-semibold">Срок выполнения</th>
+                 <th className="px-4 py-3 font-semibold">Комментарий</th>
+                 <th className="px-4 py-3 font-semibold">Статус</th>
               </tr>
             </thead>
             <tbody>
