@@ -134,6 +134,7 @@ def init_demo_plan3d(db: Session):
                 "unit": "px",
                 "scale": {"px_per_meter": 40},
                 "background": None,
+                "ceiling_height_m": 2.7,
             },
             "elements": [
                 {
@@ -160,11 +161,13 @@ def init_demo_plan3d(db: Session):
             ],
             "objects3d": [
                 {
-                    "id": "obj_sofa_1",
-                    "type": "sofa",
+                    "id": "obj_table_1",
+                    "type": "table",
                     "position": {"x": 3.2, "y": 0.0, "z": 1.5},
-                    "rotation": {"y": 1.57},
+                    "rotation": {"x": 0.0, "y": 1.57, "z": 0.0},
                     "size": {"x": 2.0, "y": 0.8, "z": 0.9},
+                    "selected": False,
+                    "meta": {"material": "wood"},
                 }
             ],
         },

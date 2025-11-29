@@ -8,14 +8,14 @@ from pydantic import BaseModel, ConfigDict, Field
 class PlanScale(BaseModel):
     px_per_meter: float = Field(alias="px_per_meter", gt=0)
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
 
 class PlanBackground(BaseModel):
     file_id: str = Field(alias="file_id")
     opacity: float = Field(ge=0, le=1)
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
 
 class PlanMeta(BaseModel):
@@ -24,22 +24,35 @@ class PlanMeta(BaseModel):
     unit: Literal["px"]
     scale: PlanScale | None = None
     background: PlanBackground | None = None
+    ceiling_height_m: float | None = Field(default=None, ge=1.8, le=5, alias="ceiling_height_m")
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
 
-class SegmentGeometry(BaseModel):
+class Opening(BaseModel):
+    id: str
+    type: Literal["door", "window", "arch", "custom"]
+    from_m: float = Field(alias="from_m", ge=0)
+    to_m: float = Field(alias="to_m", ge=0)
+    bottom_m: float = Field(alias="bottom_m", ge=0)
+    top_m: float = Field(alias="top_m", ge=0)
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+
+class WallGeometry(BaseModel):
     kind: Literal["segment"] = "segment"
-    points: list[float] = Field(min_length=4)
+    points: list[float] = Field(min_length=4, max_length=4)
+    openings: list[Opening] | None = None
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
 
 class PolygonGeometry(BaseModel):
     kind: Literal["polygon"] = "polygon"
     points: list[float] = Field(min_length=6)
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
 
 class PointGeometry(BaseModel):
@@ -47,68 +60,51 @@ class PointGeometry(BaseModel):
     x: float
     y: float
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+
+PlanGeometryType = WallGeometry | PolygonGeometry | PointGeometry
 
 
 class PlanElementBase(BaseModel):
     id: str
-    type: Literal["wall", "zone", "door", "window", "label"]
+    type: str
+    role: Literal["EXISTING", "TO_DELETE", "NEW", "MODIFIED"] | None = None
+    loadBearing: bool | None = Field(default=None, alias="loadBearing")
+    thickness: float | None = None
+    zoneType: str | None = Field(default=None, alias="zoneType")
+    relatedTo: list[str] | None = Field(default=None, alias="relatedTo")
+    selected: bool = False
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 class WallElement(PlanElementBase):
     type: Literal["wall"] = "wall"
-    role: Literal["EXISTING", "TO_DELETE", "NEW", "MODIFIED"]
-    loadBearing: bool | None = Field(default=None, alias="loadBearing")
-    thickness: float | None = None
-    geometry: SegmentGeometry
+    geometry: WallGeometry
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 class ZoneElement(PlanElementBase):
     type: Literal["zone"] = "zone"
-    zoneType: Literal[
-        "wet",
-        "living_room",
-        "dining_room",
-        "kitchen",
-        "entrance_hall",
-        "bathroom",
-        "laundry_room",
-        "bedroom",
-        "kids_room",
-        "wardrobe",
-        "home_office",
-        "balcony",
-        "veranda",
-        "loggia",
-    ] = Field(alias="zoneType")
-    relatedTo: list[str] | None = Field(default=None, alias="relatedTo")
     geometry: PolygonGeometry
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 class DoorElement(PlanElementBase):
     type: Literal["door"] = "door"
-    role: Literal["EXISTING", "TO_DELETE", "NEW", "MODIFIED"]
-    geometry: SegmentGeometry
+    geometry: WallGeometry
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 class WindowElement(PlanElementBase):
     type: Literal["window"] = "window"
-    role: Literal["EXISTING", "TO_DELETE", "NEW", "MODIFIED"]
-    windowType: Literal["STANDARD", "BALCONY_DOOR", "PANORAMIC", "ROOF", "OTHER"] = Field(
-        default="STANDARD", alias="windowType"
-    )
-    sillHeight_m: float | None = Field(default=None, alias="sillHeight_m")
-    geometry: SegmentGeometry
+    geometry: WallGeometry
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
 class LabelElement(PlanElementBase):
@@ -116,20 +112,40 @@ class LabelElement(PlanElementBase):
     text: str
     geometry: PointGeometry
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
-PlanElement = WallElement | ZoneElement | DoorElement | WindowElement | LabelElement
+class Vec3(BaseModel):
+    x: float
+    y: float
+    z: float
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+
+class Rotation3(BaseModel):
+    x: float = 0
+    y: float = 0
+    z: float = 0
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
 
 class PlanObject3D(BaseModel):
     id: str
-    type: str
-    position: dict
-    rotation: dict | None = None
-    size: dict | None = None
+    type: Literal["chair", "table", "bed", "window", "door"]
+    position: Vec3
+    size: Vec3 | None = None
+    rotation: Rotation3 | None = None
+    wallId: str | None = Field(default=None, alias="wallId")
+    zoneId: str | None = Field(default=None, alias="zoneId")
+    selected: bool = False
+    meta: dict | None = None
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+
+PlanElement = WallElement | ZoneElement | DoorElement | WindowElement | LabelElement
 
 
 class Plan(BaseModel):
@@ -137,4 +153,4 @@ class Plan(BaseModel):
     elements: list[PlanElement]
     objects3d: list[PlanObject3D] | None = Field(default=None, alias="objects3d")
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")

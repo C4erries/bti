@@ -19,7 +19,7 @@ export interface Plan3DViewerProps {
   onPlanChange: (plan: PlanGeometry) => void;
 }
 
-const WALL_HEIGHT = 2.7;
+const DEFAULT_WALL_HEIGHT = 2.7;
 const DEFAULT_OBJECT_SIZE = { x: 2, y: 0.8, z: 1 };
 
 const zoneColorByType = (zoneType?: string) => {
@@ -57,17 +57,18 @@ const Ground = ({ width, height }: { width: number; height: number }) => (
 
 const Walls = ({ plan }: { plan: PlanGeometry }) => {
   const walls = useMemo(() => buildWallSegments(plan), [plan]);
+  const wallHeight = plan.meta?.ceiling_height_m ?? DEFAULT_WALL_HEIGHT;
   return (
     <group>
       {walls.map((wall) => (
         <mesh
           key={wall.id}
-          position={[wall.center.x, WALL_HEIGHT / 2, wall.center.z]}
+          position={[wall.center.x, wallHeight / 2, wall.center.z]}
           rotation={[0, wall.angle, 0]}
           castShadow
           receiveShadow
         >
-          <boxGeometry args={[wall.length, WALL_HEIGHT, wall.thickness]} />
+          <boxGeometry args={[wall.length, wallHeight, wall.thickness]} />
           <meshStandardMaterial color={wall.loadBearing ? '#475569' : '#9ca3af'} />
         </mesh>
       ))}
@@ -129,9 +130,9 @@ const PlanObjectMesh = ({
   const transformRef = useRef<TransformControlsImpl>(null);
   const orbitControls = useThree((state) => state.controls) as OrbitControlsImpl | null;
 
-  const size = obj.size || DEFAULT_OBJECT_SIZE;
-  const position = obj.position || { x: 0, y: size.y / 2, z: 0 };
-  const rotationY = obj.rotation?.y || 0;
+  const size = obj.size ?? DEFAULT_OBJECT_SIZE;
+  const position = obj.position ?? { x: 0, y: size.y / 2, z: 0 };
+  const rotationY = obj.rotation?.y ?? 0;
   const color = selected ? '#2563eb' : '#94a3b8';
 
   const handleTransformChange = useCallback(() => {
@@ -140,7 +141,7 @@ const PlanObjectMesh = ({
     onObjectChange({
       ...obj,
       position: { x: pos.x, y: pos.y, z: pos.z },
-      rotation: { ...obj.rotation, y: rotation.y },
+      rotation: { ...(obj.rotation ?? {}), y: rotation.y },
     });
   }, [obj, onObjectChange]);
 
@@ -272,7 +273,7 @@ const SceneContent = ({
 const Plan3DViewer = ({ plan, onPlanChange }: Plan3DViewerProps) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [controlsMode, setControlsMode] = useState<'translate' | 'rotate'>('translate');
-  const [newType, setNewType] = useState('sofa');
+  const [newType, setNewType] = useState<PlanObject3D['type']>('chair');
   const pxPerMeter = getPxPerMeter(plan);
 
   const addObject = () => {
@@ -308,8 +309,8 @@ const Plan3DViewer = ({ plan, onPlanChange }: Plan3DViewerProps) => {
         ? {
             ...obj,
             rotation: {
-              ...obj.rotation,
-              y: (obj.rotation?.y || 0) + (direction === 'left' ? -Math.PI / 2 : Math.PI / 2),
+              ...(obj.rotation ?? {}),
+              y: (obj.rotation?.y ?? 0) + (direction === 'left' ? -Math.PI / 2 : Math.PI / 2),
             },
           }
         : obj,
@@ -339,13 +340,13 @@ const Plan3DViewer = ({ plan, onPlanChange }: Plan3DViewerProps) => {
             <select
               className={inputClass}
               value={newType}
-              onChange={(e) => setNewType(e.target.value)}
+              onChange={(e) => setNewType(e.target.value as PlanObject3D['type'])}
             >
-              <option value="sofa">Sofa</option>
-              <option value="table">Table</option>
-              <option value="wardrobe">Wardrobe</option>
-              <option value="bed">Bed</option>
-              <option value="chair">Chair</option>
+              <option value="chair">Стул</option>
+              <option value="table">Стол</option>
+              <option value="bed">Кровать</option>
+              <option value="window">Окно</option>
+              <option value="door">Дверь</option>
             </select>
             <button className={buttonClass} onClick={addObject}>
               Добавить

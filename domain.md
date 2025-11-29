@@ -106,7 +106,7 @@
     - `plan: Plan`
     - `comment: str | None`
     - `created_by_id: UUID | None`
-    - `created_at: datetime | None`.
+    - `created_at: datetime`.
   - `Plan` (см. `backend/app/schemas/plan.py`):
     - `meta`: размеры, единицы, масштаб, фон;
     - `elements`: список объектов 2D‑плана:
@@ -114,6 +114,7 @@
       - `zone` (функциональные зоны, связь с элементами);
       - далее — двери, окна, подписи (по мере внедрения);
     - `objects3d`: опциональный список 3D‑объектов для визуализации.
+    - Contract: структура `Plan` совпадает с `3Dmodel_schema.json` (meta width/height/unit px, опциональные scale/background и ceiling_height_m, сегменты/полигоны/точки с openings у стен, objects3d с position/rotation/size и wallId/zoneId).
 
 ## 5. Чат и AI
 
@@ -221,4 +222,3 @@ interface CalculatorInput {
 
 - не вводить заново сущность «услуга» без явной причины и обсуждения;
 - опираться на `Order`, `District`, `HouseType`, `Plan`, `CalculatorInput` и связанные сущности.
-

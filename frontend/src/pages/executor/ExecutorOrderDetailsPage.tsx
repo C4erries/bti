@@ -75,7 +75,7 @@ const ExecutorOrderDetailsPage = () => {
     }
   };
 
-  const loadPlan = async (versionType?: string) => {
+  const loadPlan = async (versionType?: OrderPlanVersion['versionType']) => {
     if (!token || !orderId) return;
     try {
       const query = versionType ? `?version=${versionType}` : '';
@@ -189,7 +189,7 @@ const ExecutorOrderDetailsPage = () => {
         {
           method: 'POST',
           data: {
-            versionType: 'EXECUTOR_EDITED',
+            versionType: 'MODIFIED',
             plan: planData,
             comment: editComment || 'Изменения в плане',
           },
@@ -352,7 +352,9 @@ const ExecutorOrderDetailsPage = () => {
                   <select
                     className={`${inputClass} mt-1`}
                     value={currentPlan?.versionType || ''}
-                    onChange={(e) => void loadPlan(e.target.value)}
+                    onChange={(e) =>
+                      void loadPlan(e.target.value as OrderPlanVersion['versionType'])
+                    }
                   >
                     {planVersions.map((v) => (
                       <option key={v.id} value={v.versionType}>

@@ -51,9 +51,9 @@ class OrderPlanVersion(BaseModel):
     plan: Plan
     comment: str | None = None
     created_by_id: uuid.UUID | None = Field(default=None, alias="createdById")
-    created_at: datetime | None = Field(default=None, alias="createdAt")
+    created_at: datetime = Field(alias="createdAt")
 
-    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True, extra="forbid")
 
 
 class SavePlanChangesRequest(BaseModel):
@@ -61,7 +61,7 @@ class SavePlanChangesRequest(BaseModel):
     plan: Plan
     comment: str | None = None  # Комментарий при сохранении изменений
 
-    model_config = ConfigDict(populate_by_name=True)
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
 
 class ParsePlanResultRequest(BaseModel):

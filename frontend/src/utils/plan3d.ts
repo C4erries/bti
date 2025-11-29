@@ -1,14 +1,19 @@
-import type { PlanGeometry, PlanObject3D, WallElement, ZoneElement } from '../types';
+import type {
+  PlanGeometry,
+  PlanObject3D,
+  WallElement,
+  ZoneElement,
+} from '../types';
 
 export const safeNumber = (value: unknown, fallback = 0) => {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
 };
 
-export const getPxPerMeter = (plan?: PlanGeometry) =>
-  plan?.meta?.scale?.px_per_meter && plan.meta.scale.px_per_meter > 0
-    ? plan.meta.scale.px_per_meter
-    : 100;
+export const getPxPerMeter = (plan?: PlanGeometry) => {
+  const scale = plan?.meta?.scale;
+  return scale && scale.px_per_meter > 0 ? scale.px_per_meter : 100;
+};
 
 export const from2DTo3D = (xPx: number, yPx: number, pxPerMeter: number) => {
   const scale = pxPerMeter > 0 ? pxPerMeter : 100;
