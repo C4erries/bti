@@ -193,6 +193,8 @@ class AdminUpdateOrderRequest(BaseModel):
     current_department_code: str | None = Field(default=None, alias="currentDepartmentCode")
     estimated_price: float | None = Field(default=None, alias="estimatedPrice")
     total_price: float | None = Field(default=None, alias="totalPrice")
+    planned_visit_at: datetime | None = Field(default=None, alias="plannedVisitAt", description="Планируемая дата выезда")
+    completed_at: datetime | None = Field(default=None, alias="completedAt", description="Дата завершения заказа")
 
     model_config = ConfigDict(populate_by_name=True)
 

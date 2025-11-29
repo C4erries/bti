@@ -12,6 +12,7 @@ class User(BaseModel):
     full_name: str = Field(alias="fullName")
     phone: str | None = None
     is_admin: bool = Field(alias="isAdmin")
+    is_blocked: bool = Field(default=False, alias="isBlocked")
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
@@ -46,6 +47,7 @@ class UpdateUserRequest(BaseModel):
     full_name: str | None = Field(default=None, alias="fullName")
     phone: str | None = None
     is_admin: bool | None = Field(default=None, alias="isAdmin")
+    is_blocked: bool | None = Field(default=None, alias="isBlocked")
 
     model_config = ConfigDict(populate_by_name=True)
 

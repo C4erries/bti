@@ -51,9 +51,12 @@ def list_executors(
 
 @router.get("/users", response_model=list[User], summary="Список пользователей")
 def list_users(
-    db: Session = Depends(get_db_session), admin=Depends(get_current_admin)
+    role: str | None = Query(default=None, description="Фильтр по роли: client, executor, admin"),
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
 ) -> list[User]:
-    users = user_service.list_users(db)
+    """Получить список пользователей с фильтром по роли"""
+    users = user_service.list_users(db, role=role)
     return [User.model_validate(user) for user in users]
 
 
@@ -119,3 +122,42 @@ def get_executor_analytics(
     if not analytics:
         raise HTTPException(status_code=404, detail="Executor not found or has no profile")
     return analytics
+
+
+@router.get("/users/{user_id}/orders", response_model=list[dict], summary="История заказов пользователя")
+def get_user_orders(
+    user_id: uuid.UUID,
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
+) -> list[dict]:
+    """Получить историю заказов пользователя (как клиента и как исполнителя)"""
+    user = user_service.get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    from app.services import order_service
+    orders = order_service.get_user_orders(db, user_id)
+    
+    # Формируем упрощенный список заказов для админки
+    result = []
+    for order in orders:
+        # Определяем роль пользователя в заказе
+        role = "client" if order.client_id == user_id else "executor"
+        
+        # Получаем название услуги
+        service_title = None
+        if order.service:
+            service_title = order.service.title
+        
+        result.append({
+            "id": str(order.id),
+            "title": order.title,
+            "status": order.status.value if hasattr(order.status, 'value') else str(order.status),
+            "serviceTitle": service_title,
+            "role": role,
+            "createdAt": order.created_at.isoformat() if order.created_at else None,
+            "totalPrice": order.total_price,
+            "address": order.address,
+        })
+    
+    return result

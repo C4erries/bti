@@ -260,17 +260,29 @@ def update_order(
     db: Session = Depends(get_db_session),
     admin=Depends(get_current_admin),
 ) -> Order:
+    """Обновление заказа администратором: статус, цена, сроки, отдел"""
     order = order_service.get_order(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
+    
     if data.status is not None:
         order_service.add_status_history(db, order, data.status, admin)
+    
     if data.current_department_code is not None:
         order.current_department_code = data.current_department_code
+    
     if data.estimated_price is not None:
         order.estimated_price = data.estimated_price
+    
     if data.total_price is not None:
         order.total_price = data.total_price
+    
+    if data.planned_visit_at is not None:
+        order.planned_visit_at = data.planned_visit_at
+    
+    if data.completed_at is not None:
+        order.completed_at = data.completed_at
+    
     db.add(order)
     db.commit()
     db.refresh(order)

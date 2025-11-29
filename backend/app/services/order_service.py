@@ -60,6 +60,30 @@ def get_client_orders(db: Session, client_id: uuid.UUID) -> list[Order]:
     return list(db.scalars(select(Order).where(Order.client_id == client_id)))
 
 
+def get_user_orders(db: Session, user_id: uuid.UUID) -> list[Order]:
+    """Получить все заказы пользователя (как клиента и как исполнителя)"""
+    # Заказы, где пользователь является клиентом
+    client_orders = db.scalars(
+        select(Order).where(Order.client_id == user_id)
+    ).all()
+    
+    # Заказы, где пользователь является исполнителем
+    executor_orders = db.scalars(
+        select(Order)
+        .join(ExecutorAssignment)
+        .where(ExecutorAssignment.executor_id == user_id)
+        .distinct()
+    ).all()
+    
+    # Объединяем и убираем дубликаты
+    all_orders = list(set(list(client_orders) + list(executor_orders)))
+    
+    # Сортируем по дате создания (новые первыми)
+    all_orders.sort(key=lambda o: o.created_at, reverse=True)
+    
+    return all_orders
+
+
 def update_order_by_client(db: Session, order: Order, data: UpdateOrderRequest) -> Order:
     if order.status not in (OrderStatus.DRAFT, OrderStatus.SUBMITTED):
         raise HTTPException(
