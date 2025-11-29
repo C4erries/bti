@@ -26,10 +26,11 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # В разработке разрешаем все origins
-    allow_credentials=True,
+    allow_credentials=False,  # Нельзя использовать credentials с allow_origins=["*"]
     allow_methods=["*"],  # Разрешаем все методы
     allow_headers=["*"],  # Разрешаем все заголовки
     expose_headers=["*"],
+    max_age=3600,
 )
 
 # create tables and seed minimal data for development

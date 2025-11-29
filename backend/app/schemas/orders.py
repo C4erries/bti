@@ -64,6 +64,29 @@ class SavePlanChangesRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+class ParsePlanResultRequest(BaseModel):
+    """Запрос на сохранение результата парсинга плана от нейронки"""
+    file_id: uuid.UUID = Field(alias="fileId", description="ID загруженного файла, который обрабатывался")
+    plan: Plan = Field(description="Результат парсинга - структурированный план")
+    confidence: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Уверенность распознавания (0.0 - 1.0)"
+    )
+    errors: list[str] = Field(
+        default_factory=list,
+        description="Список ошибок или предупреждений при распознавании"
+    )
+    processing_time_ms: int | None = Field(
+        default=None,
+        alias="processingTimeMs",
+        description="Время обработки в миллисекундах"
+    )
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class ExecutorApprovePlanRequest(BaseModel):
     """Запрос на одобрение плана исполнителем"""
     comment: str | None = None

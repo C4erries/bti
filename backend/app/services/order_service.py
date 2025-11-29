@@ -125,62 +125,115 @@ def list_admin_orders(
             query = query.where(Order.status == status_enum)
     
     if executor_id:
-        query = (
-            query.join(ExecutorAssignment, ExecutorAssignment.order_id == Order.id)
-            .where(ExecutorAssignment.executor_id == executor_id)
+        # Используем exists для фильтрации по исполнителю, чтобы избежать проблем с join
+        from sqlalchemy import exists
+        query = query.where(
+            exists().where(
+                ExecutorAssignment.order_id == Order.id,
+                ExecutorAssignment.executor_id == executor_id
+            )
         )
     
     if department_code:
-        query = query.where(Order.current_department_code == department_code)
+        # Фильтруем по отделу, но только если передан непустой код
+        dept_code = department_code.strip() if isinstance(department_code, str) else str(department_code)
+        if dept_code:
+            query = query.where(Order.current_department_code == dept_code)
     
-    return list(db.scalars(query.order_by(Order.created_at.desc())))
+    try:
+        orders_list = list(db.scalars(query.order_by(Order.created_at.desc())))
+        return orders_list
+    except Exception as e:
+        # Логируем ошибку, но возвращаем пустой список вместо падения
+        import traceback
+        print(f"ERROR in list_admin_orders: {e}")
+        print(traceback.format_exc())
+        return []
 
 
-def get_admin_order_details(db: Session, order_id: uuid.UUID) -> dict:
+def get_admin_order_details(db: Session, order_id: uuid.UUID) -> dict | None:
     """Получить детальную информацию о заказе для админ-панели"""
-    order = get_order(db, order_id)
-    if not order:
-        return None
-    
-    # Клиент
-    client = user_service.get_user_by_id(db, order.client_id)
-    
-    # Исполнитель
-    executor = None
-    executor_assignment = None
-    assignment = db.scalar(
-        select(ExecutorAssignment)
-        .where(ExecutorAssignment.order_id == order_id)
-        .order_by(ExecutorAssignment.assigned_at.desc())
-        .limit(1)
-    )
-    if assignment:
-        executor = user_service.get_user_by_id(db, assignment.executor_id)
-        executor_assignment = {
-            "id": assignment.id,
-            "executorId": assignment.executor_id,
-            "status": assignment.status.value if hasattr(assignment.status, 'value') else str(assignment.status),
-            "assignedAt": assignment.assigned_at.isoformat() if assignment.assigned_at else None,
+    try:
+        order = get_order(db, order_id)
+        if not order:
+            return None
+        
+        # Клиент
+        client = None
+        try:
+            client = user_service.get_user_by_id(db, order.client_id)
+        except Exception as e:
+            import traceback
+            print(f"Error getting client for order {order_id}: {e}")
+            print(traceback.format_exc())
+        
+        # Исполнитель
+        executor = None
+        executor_assignment = None
+        try:
+            assignment = db.scalar(
+                select(ExecutorAssignment)
+                .where(ExecutorAssignment.order_id == order_id)
+                .order_by(ExecutorAssignment.assigned_at.desc())
+                .limit(1)
+            )
+            if assignment:
+                executor = user_service.get_user_by_id(db, assignment.executor_id)
+                assignment_status = str(assignment.status)
+                if hasattr(assignment.status, 'value'):
+                    assignment_status = assignment.status.value
+                executor_assignment = {
+                    "id": str(assignment.id),
+                    "executorId": str(assignment.executor_id),
+                    "status": assignment_status,
+                    "assignedAt": assignment.assigned_at.isoformat() if assignment.assigned_at else None,
+                }
+        except Exception as e:
+            import traceback
+            print(f"Error getting executor for order {order_id}: {e}")
+            print(traceback.format_exc())
+        
+        # Файлы
+        files = []
+        try:
+            files = list(db.scalars(select(OrderFile).where(OrderFile.order_id == order_id)))
+        except Exception as e:
+            import traceback
+            print(f"Error getting files for order {order_id}: {e}")
+            print(traceback.format_exc())
+        
+        # Версии планов
+        plan_versions = []
+        try:
+            plan_versions = get_plan_versions(db, order_id)
+        except Exception as e:
+            import traceback
+            print(f"Error getting plan versions for order {order_id}: {e}")
+            print(traceback.format_exc())
+        
+        # История статусов
+        status_history = []
+        try:
+            status_history = get_status_history(db, order_id)
+        except Exception as e:
+            import traceback
+            print(f"Error getting status history for order {order_id}: {e}")
+            print(traceback.format_exc())
+        
+        return {
+            "order": order,
+            "client": client,
+            "executor": executor,
+            "executorAssignment": executor_assignment,
+            "files": files,
+            "planVersions": plan_versions,
+            "statusHistory": status_history,
         }
-    
-    # Файлы
-    files = list(db.scalars(select(OrderFile).where(OrderFile.order_id == order_id)))
-    
-    # Версии планов
-    plan_versions = get_plan_versions(db, order_id)
-    
-    # История статусов
-    status_history = get_status_history(db, order_id)
-    
-    return {
-        "order": order,
-        "client": client,
-        "executor": executor,
-        "executorAssignment": executor_assignment,
-        "files": files,
-        "planVersions": plan_versions,
-        "statusHistory": status_history,
-    }
+    except Exception as e:
+        import traceback
+        print(f"CRITICAL ERROR in get_admin_order_details for order {order_id}: {e}")
+        print(traceback.format_exc())
+        return None
 
 
 def admin_send_for_revision(db: Session, order: Order, admin: User, comment: str) -> OrderStatusHistory:

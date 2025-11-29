@@ -53,9 +53,15 @@ const AdminOrdersPage = () => {
 
   useEffect(() => {
     if (token) {
-      void loadOrders();
       void loadDepartments();
       void loadExecutors();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  useEffect(() => {
+    if (token) {
+      void loadOrders();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, filters, activeTab]);
@@ -66,15 +72,25 @@ const AdminOrdersPage = () => {
       const queryParams: Record<string, string> = {};
       if (filters.status) queryParams.status = filters.status;
       if (filters.executorId) queryParams.executorId = filters.executorId;
-      if (filters.departmentCode) queryParams.departmentCode = filters.departmentCode;
-      if (activeTab !== 'all') queryParams.departmentCode = activeTab;
+      // Если выбрана вкладка отдела, используем её вместо фильтра
+      if (activeTab !== 'all') {
+        queryParams.departmentCode = activeTab;
+      } else if (filters.departmentCode) {
+        queryParams.departmentCode = filters.departmentCode;
+      }
 
       const queryString = new URLSearchParams(queryParams).toString();
       const url = `/admin/orders${queryString ? `?${queryString}` : ''}`;
       const data = await apiFetch<AdminOrderListItem[]>(url, {}, token);
-      setOrders(data);
+      setOrders(data || []);
+      if (data && data.length === 0) {
+        setMessage('Заказы не найдены');
+      } else {
+        setMessage(null);
+      }
     } catch (error: any) {
       setMessage(`Ошибка загрузки: ${error.message}`);
+      setOrders([]);
     }
   };
 
@@ -173,11 +189,7 @@ const AdminOrdersPage = () => {
     }
   };
 
-  // Фильтруем заказы по активной вкладке
-  const filteredOrders =
-    activeTab === 'all'
-      ? orders
-      : orders.filter((o) => o.currentDepartmentCode === activeTab);
+  // Фильтрация уже выполняется на backend через параметры запроса
 
   return (
     <div className="space-y-4">
@@ -293,14 +305,14 @@ const AdminOrdersPage = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredOrders.length === 0 ? (
+              {orders.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-4 py-8 text-center text-slate-500">
                     Заказы не найдены
                   </td>
                 </tr>
               ) : (
-                filteredOrders.map((o) => (
+                orders.map((o) => (
                   <tr
                     key={o.id}
                     className="border-t border-slate-200 hover:bg-slate-50 cursor-pointer"

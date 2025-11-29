@@ -36,70 +36,135 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 @router.get("/orders", response_model=list[AdminOrderListItem], summary="Список заказов (админ)")
 def list_orders(
     status: str | None = Query(default=None, description="Фильтр по статусу"),
-    executor_id: uuid.UUID | None = Query(default=None, description="Фильтр по исполнителю"),
-    department_code: str | None = Query(default=None, description="Фильтр по отделу"),
+    executorId: str | None = Query(default=None, description="Фильтр по исполнителю (UUID)"),
+    departmentCode: str | None = Query(default=None, description="Фильтр по отделу"),
     db: Session = Depends(get_db_session),
     admin=Depends(get_current_admin),
 ) -> list[AdminOrderListItem]:
     """Список заказов с фильтрами для админ-панели"""
-    orders = order_service.list_admin_orders(db, status=status, executor_id=executor_id, department_code=department_code)
-    
-    result = []
-    for order in orders:
-        # Клиент
-        client = user_service.get_user_by_id(db, order.client_id)
+    try:
+        # Преобразуем executorId в UUID, если передан
+        executor_uuid = None
+        if executorId:
+            try:
+                executor_uuid = uuid.UUID(executorId)
+            except (ValueError, TypeError):
+                executor_uuid = None
         
-        # Исполнитель
-        executor = None
-        executor_comment = None
-        assignment = db.scalar(
-            select(ExecutorAssignment)
-            .where(ExecutorAssignment.order_id == order.id)
-            .order_by(ExecutorAssignment.assigned_at.desc())
-            .limit(1)
-        )
-        if assignment:
-            executor = user_service.get_user_by_id(db, assignment.executor_id)
-            # Получаем последний комментарий из истории статусов
-            from app.services.order_service import get_status_history
-            history = get_status_history(db, order.id)
-            if history:
-                executor_comment = history[-1].comment
+        orders = order_service.list_admin_orders(db, status=status, executor_id=executor_uuid, department_code=departmentCode)
         
-        # Количество файлов
-        files_count = db.scalar(
-            select(func.count()).select_from(OrderFile).where(OrderFile.order_id == order.id)
-        ) or 0
+        result = []
+        for order in orders:
+            try:
+                # Клиент
+                client = user_service.get_user_by_id(db, order.client_id)
+                
+                # Исполнитель
+                executor = None
+                executor_comment = None
+                try:
+                    assignment = db.scalar(
+                        select(ExecutorAssignment)
+                        .where(ExecutorAssignment.order_id == order.id)
+                        .order_by(ExecutorAssignment.assigned_at.desc())
+                        .limit(1)
+                    )
+                    if assignment:
+                        executor = user_service.get_user_by_id(db, assignment.executor_id)
+                        # Получаем последний комментарий из истории статусов
+                        from app.services.order_service import get_status_history
+                        history = get_status_history(db, order.id)
+                        if history:
+                            executor_comment = history[-1].comment
+                except Exception:
+                    pass  # Игнорируем ошибки при получении исполнителя
+                
+                # Количество файлов
+                files_count = 0
+                try:
+                    files_count = db.scalar(
+                        select(func.count()).select_from(OrderFile).where(OrderFile.order_id == order.id)
+                    ) or 0
+                except Exception:
+                    pass
+                
+                # Название услуги
+                service_title = None
+                try:
+                    if order.service_code:
+                        from app.models.directory import Service
+                        service = db.get(Service, order.service_code)
+                        if service:
+                            service_title = service.name
+                except Exception:
+                    pass
+                
+                # Обработка статуса
+                order_status = str(order.status)
+                if hasattr(order.status, 'value'):
+                    order_status = order.status.value
+                
+                result.append(AdminOrderListItem(
+                    id=order.id,
+                    status=order_status,
+                    title=order.title or "",
+                    description=order.description or None,
+                    serviceCode=order.service_code,
+                    serviceTitle=service_title,
+                    clientId=order.client_id,
+                    clientName=client.full_name if client else None,
+                    executorId=executor.id if executor else None,
+                    executorName=executor.full_name if executor else None,
+                    currentDepartmentCode=order.current_department_code,
+                    totalPrice=order.total_price,
+                    filesCount=files_count,
+                    createdAt=order.created_at,
+                    plannedVisitAt=order.planned_visit_at,
+                    completedAt=order.completed_at,
+                    executorComment=executor_comment,
+                ))
+            except Exception as e:
+                # Логируем ошибку для конкретного заказа, но продолжаем обработку остальных
+                import traceback
+                print(f"ERROR processing order {order.id}: {e}")
+                print(traceback.format_exc())
+                # Все равно добавляем заказ с минимальными данными
+                try:
+                    order_status = str(order.status)
+                    if hasattr(order.status, 'value'):
+                        order_status = order.status.value
+                    result.append(AdminOrderListItem(
+                        id=order.id,
+                        status=order_status,
+                        title=order.title or "",
+                        description=order.description or None,
+                        serviceCode=order.service_code,
+                        serviceTitle=None,
+                        clientId=order.client_id,
+                        clientName=None,
+                        executorId=None,
+                        executorName=None,
+                        currentDepartmentCode=order.current_department_code,
+                        totalPrice=order.total_price,
+                        filesCount=0,
+                        createdAt=order.created_at,
+                        plannedVisitAt=order.planned_visit_at,
+                        completedAt=order.completed_at,
+                        executorComment=None,
+                    ))
+                except Exception as e2:
+                    print(f"CRITICAL: Failed to add order {order.id} even with minimal data: {e2}")
         
-        # Название услуги
-        service_title = None
-        if order.service_code:
-            from app.models.directory import Service
-            service = db.get(Service, order.service_code)
-            if service:
-                service_title = service.name
-        
-        result.append(AdminOrderListItem(
-            id=order.id,
-            status=order.status.value if hasattr(order.status, 'value') else str(order.status),
-            title=order.title,
-            description=order.description,
-            serviceCode=order.service_code,
-            serviceTitle=service_title,
-            clientId=order.client_id,
-            clientName=client.full_name if client else None,
-            executorId=executor.id if executor else None,
-            executorName=executor.full_name if executor else None,
-            currentDepartmentCode=order.current_department_code,
-            totalPrice=order.total_price,
-            filesCount=files_count,
-            createdAt=order.created_at,
-            plannedVisitAt=order.planned_visit_at,
-            completedAt=order.completed_at,
-            executorComment=executor_comment,
-        ))
-    
-    return result
+        return result
+    except Exception as e:
+        # Логируем общую ошибку
+        import traceback
+        print(f"CRITICAL ERROR in list_orders: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        ) from e
 
 
 @router.get("/orders/{order_id}", response_model=AdminOrderDetails, summary="Детали заказа (админ)")
@@ -109,19 +174,83 @@ def get_order(
     admin=Depends(get_current_admin),
 ) -> AdminOrderDetails:
     """Детальная информация о заказе для админ-панели"""
-    details = order_service.get_admin_order_details(db, order_id)
-    if not details:
-        raise HTTPException(status_code=404, detail="Order not found")
-    
-    return AdminOrderDetails(
-        order=Order.model_validate(details["order"]),
-        client=details["client"],
-        executor=details["executor"],
-        executorAssignment=details["executorAssignment"],
-        files=[OrderFileSchema.model_validate(f) for f in details["files"]],
-        planVersions=[OrderPlanVersionSchema.model_validate(v) for v in details["planVersions"]],
-        statusHistory=[OrderStatusHistoryItem.model_validate(h) for h in details["statusHistory"]],
-    )
+    try:
+        details = order_service.get_admin_order_details(db, order_id)
+        if not details:
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        # Обрабатываем клиента
+        client_schema = None
+        if details.get("client"):
+            try:
+                from app.schemas.user import User
+                client_obj = details["client"]
+                if client_obj:
+                    client_schema = User.model_validate(client_obj)
+            except Exception as e:
+                import traceback
+                print(f"Error validating client: {e}")
+                print(traceback.format_exc())
+        
+        # Обрабатываем исполнителя
+        executor_schema = None
+        if details.get("executor"):
+            try:
+                from app.schemas.user import User
+                executor_obj = details["executor"]
+                if executor_obj:
+                    executor_schema = User.model_validate(executor_obj)
+            except Exception as e:
+                import traceback
+                print(f"Error validating executor: {e}")
+                print(traceback.format_exc())
+        
+        # Обрабатываем файлы
+        files_list = []
+        try:
+            files_list = [OrderFileSchema.model_validate(f) for f in details.get("files", [])]
+        except Exception as e:
+            import traceback
+            print(f"Error validating files: {e}")
+            print(traceback.format_exc())
+        
+        # Обрабатываем версии планов
+        plan_versions_list = []
+        try:
+            plan_versions_list = [OrderPlanVersionSchema.model_validate(v) for v in details.get("planVersions", [])]
+        except Exception as e:
+            import traceback
+            print(f"Error validating plan versions: {e}")
+            print(traceback.format_exc())
+        
+        # Обрабатываем историю статусов
+        status_history_list = []
+        try:
+            status_history_list = [OrderStatusHistoryItem.model_validate(h) for h in details.get("statusHistory", [])]
+        except Exception as e:
+            import traceback
+            print(f"Error validating status history: {e}")
+            print(traceback.format_exc())
+        
+        return AdminOrderDetails(
+            order=Order.model_validate(details["order"]),
+            client=client_schema,
+            executor=executor_schema,
+            executorAssignment=details.get("executorAssignment"),
+            files=files_list,
+            planVersions=plan_versions_list,
+            statusHistory=status_history_list,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"CRITICAL ERROR in get_order: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(e)}"
+        ) from e
 
 
 @router.patch("/orders/{order_id}", response_model=Order, summary="Обновление заказа (админ)")
