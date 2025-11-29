@@ -23,7 +23,7 @@ type PlanViewMode = 'json' | '3d' | 'edit';
 
 const ExecutorOrderDetailsPage = () => {
   const { orderId } = useParams();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [data, setData] = useState<ExecutorOrderDetails | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [tab, setTab] = useState<TabKey>('info');
@@ -208,6 +208,11 @@ const ExecutorOrderDetailsPage = () => {
                        data?.order?.status === 'DOCUMENTS_IN_PROGRESS' ||
                        data?.order?.status === 'SUBMITTED') &&
                       (currentPlan || planData);
+  const canTakeOrDecline =
+    !!data?.order &&
+    !!data?.executorAssignment &&
+    data.executorAssignment.executorId === user?.user.id &&
+    data.executorAssignment.status === 'ASSIGNED';
 
   return (
     <div className="space-y-3">
@@ -215,7 +220,7 @@ const ExecutorOrderDetailsPage = () => {
         <div className="flex items-center justify-between">
           <h3 className={sectionTitleClass}>Заказ исполнителя</h3>
           <div className="flex gap-2">
-            {!data?.executorAssignment && (
+            {canTakeOrDecline && (
               <>
                 <button className={buttonClass} onClick={() => void handleAction('take')}>
                   Взять в работу

@@ -8,7 +8,7 @@ import {
   sectionTitleClass,
   subtleButtonClass,
 } from '../../components/ui';
-import type { ExecutorDetails } from '../../types';
+import type { Department, ExecutorDetails } from '../../types';
 
 const AdminExecutorsPage = () => {
   const { token } = useAuth();
@@ -26,6 +26,7 @@ const AdminExecutorsPage = () => {
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [departments, setDepartments] = useState<Department[]>([]);
 
   const loadExecutors = async () => {
     if (!token) return;
@@ -47,8 +48,19 @@ const AdminExecutorsPage = () => {
 
   useEffect(() => {
     void loadExecutors();
+    void loadDepartments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  const loadDepartments = async () => {
+    if (!token) return;
+    try {
+      const data = await apiFetch<Department[]>('/admin/departments', {}, token);
+      setDepartments(data);
+    } catch (err) {
+      console.error('Failed to load departments', err);
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -119,12 +131,18 @@ const AdminExecutorsPage = () => {
           </label>
           <label className="text-sm text-slate-700">
             Отдел
-            <input
+            <select
               className={`${inputClass} mt-1`}
               value={form.departmentCode}
               onChange={(e) => setForm((p) => ({ ...p, departmentCode: e.target.value }))}
-              placeholder="LEGAL / MASTERS"
-            />
+            >
+              <option value="">Не выбран</option>
+              {departments.map((d) => (
+                <option key={d.code} value={d.code}>
+                  {d.name || d.code}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="text-sm text-slate-700">
             Стаж (лет)

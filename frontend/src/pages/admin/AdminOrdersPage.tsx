@@ -9,12 +9,13 @@ import {
   subtleButtonClass,
   textareaClass,
 } from '../../components/ui';
-import type { Order } from '../../types';
+import type { ExecutorDetails, Order } from '../../types';
 
 const AdminOrdersPage = () => {
   const { token } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [selected, setSelected] = useState<Order | null>(null);
+  const [availableExecutors, setAvailableExecutors] = useState<ExecutorDetails[]>([]);
   const [edit, setEdit] = useState({
     status: '',
     currentDepartmentCode: '',
@@ -32,7 +33,9 @@ const AdminOrdersPage = () => {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (token) void loadOrders();
+    if (token) {
+      void loadOrders();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
@@ -40,6 +43,23 @@ const AdminOrdersPage = () => {
     if (!token) return;
     const data = await apiFetch<Order[]>('/admin/orders', {}, token);
     setOrders(data);
+  };
+
+  const loadExecutorsForOrder = async (order: Order) => {
+    if (!token) return;
+    const departmentCode = order.currentDepartmentCode || undefined;
+    try {
+      const executors = await apiFetch<ExecutorDetails[]>(
+        '/admin/executors',
+        { query: { departmentCode } },
+        token,
+      );
+      setAvailableExecutors(executors);
+      setAssignExecutorId(executors.length ? executors[0].user.id : '');
+    } catch {
+      setAvailableExecutors([]);
+      setAssignExecutorId('');
+    }
   };
 
   const loadOrder = async (id: string) => {
@@ -52,6 +72,7 @@ const AdminOrdersPage = () => {
       estimatedPrice: data.estimatedPrice?.toString() || '',
       totalPrice: data.totalPrice?.toString() || '',
     });
+    void loadExecutorsForOrder(data);
   };
 
   const saveOrder = async (e: FormEvent) => {
@@ -70,7 +91,7 @@ const AdminOrdersPage = () => {
       },
       token,
     );
-    setMessage('Заказ обновлен');
+    setMessage('Изменения по заказу сохранены');
     await loadOrder(selected.id);
   };
 
@@ -82,7 +103,7 @@ const AdminOrdersPage = () => {
       { method: 'POST', data: { executorId: assignExecutorId } },
       token,
     );
-    setMessage('Исполнитель назначен');
+    setMessage('Исполнитель успешно назначен');
   };
 
   const scheduleVisit = async (e: FormEvent, mode: 'create' | 'update') => {
@@ -107,14 +128,14 @@ const AdminOrdersPage = () => {
       { method: mode === 'create' ? 'POST' : 'PATCH', data: payload },
       token,
     );
-    setMessage('Данные визита отправлены');
+    setMessage('Информация о выезде сохранена');
   };
 
   return (
     <div className="space-y-4">
       <div className={cardClass}>
         <div className="flex items-center justify-between">
-          <h3 className={sectionTitleClass}>Все заказы</h3>
+          <h3 className={sectionTitleClass}>Заказы</h3>
           <button className={subtleButtonClass} onClick={() => void loadOrders()}>
             Обновить
           </button>
@@ -125,8 +146,8 @@ const AdminOrdersPage = () => {
               <tr>
                 <th className="px-3 py-2">ID</th>
                 <th className="px-3 py-2">Статус</th>
-                <th className="px-3 py-2">Услуга</th>
-                <th className="px-3 py-2">Цена</th>
+                <th className="px-3 py-2">Код услуги</th>
+                <th className="px-3 py-2">Стоимость</th>
               </tr>
             </thead>
             <tbody>
@@ -153,6 +174,7 @@ const AdminOrdersPage = () => {
           <pre className="mt-2 whitespace-pre-wrap text-xs">
             {JSON.stringify(selected, null, 2)}
           </pre>
+
           <form className="mt-3 grid gap-3 lg:grid-cols-2" onSubmit={saveOrder}>
             <label className="text-sm text-slate-700">
               Статус
@@ -163,15 +185,17 @@ const AdminOrdersPage = () => {
               />
             </label>
             <label className="text-sm text-slate-700">
-              Отдел
+              Текущий отдел
               <input
                 className={`${inputClass} mt-1`}
                 value={edit.currentDepartmentCode}
-                onChange={(e) => setEdit((p) => ({ ...p, currentDepartmentCode: e.target.value }))}
+                onChange={(e) =>
+                  setEdit((p) => ({ ...p, currentDepartmentCode: e.target.value }))
+                }
               />
             </label>
             <label className="text-sm text-slate-700">
-              Оценка цены
+              Оценочная стоимость
               <input
                 className={`${inputClass} mt-1`}
                 value={edit.estimatedPrice}
@@ -179,7 +203,7 @@ const AdminOrdersPage = () => {
               />
             </label>
             <label className="text-sm text-slate-700">
-              Итоговая цена
+              Итоговая стоимость
               <input
                 className={`${inputClass} mt-1`}
                 value={edit.totalPrice}
@@ -187,7 +211,7 @@ const AdminOrdersPage = () => {
               />
             </label>
             <button type="submit" className={buttonClass}>
-              Сохранить заказ
+              Сохранить изменения
             </button>
           </form>
 
@@ -195,39 +219,69 @@ const AdminOrdersPage = () => {
             <form className="rounded border border-slate-200 p-3" onSubmit={assignExecutor}>
               <p className="font-semibold">Назначить исполнителя</p>
               <div className="mt-2 flex items-center gap-2">
-                <input
-                  className={inputClass}
-                  value={assignExecutorId}
-                  onChange={(e) => setAssignExecutorId(e.target.value)}
-                  placeholder="executorId (UUID)"
-                  required
-                />
+                {availableExecutors.length ? (
+                  <select
+                    className={inputClass}
+                    value={assignExecutorId}
+                    onChange={(e) => setAssignExecutorId(e.target.value)}
+                    required
+                  >
+                    <option value="">Выберите исполнителя</option>
+                    {availableExecutors.map((ex) => (
+                      <option key={ex.user.id} value={ex.user.id}>
+                        {ex.user.fullName} ({ex.user.email}
+                        {ex.executorProfile?.departmentCode
+                          ? ` · ${ex.executorProfile.departmentCode}`
+                          : ''}
+                        )
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    className={inputClass}
+                    value={assignExecutorId}
+                    onChange={(e) => setAssignExecutorId(e.target.value)}
+                    placeholder="executorId (UUID)"
+                    required
+                  />
+                )}
                 <button type="submit" className={subtleButtonClass}>
                   Назначить
                 </button>
               </div>
             </form>
+
             <div className="space-y-3 rounded border border-slate-200 p-3">
-              <form onSubmit={(e) => void scheduleVisit(e, 'create')} className="space-y-2">
-                <p className="font-semibold">Запланировать визит (POST)</p>
+              <form
+                onSubmit={(e) => void scheduleVisit(e, 'create')}
+                className="space-y-2"
+              >
+                <p className="font-semibold">Запланировать выезд (POST)</p>
                 <input
                   className={inputClass}
                   value={scheduleForm.executorId}
-                  onChange={(e) => setScheduleForm((p) => ({ ...p, executorId: e.target.value }))}
+                  onChange={(e) =>
+                    setScheduleForm((p) => ({ ...p, executorId: e.target.value }))
+                  }
                   placeholder="executorId"
                   required
                 />
                 <input
                   className={inputClass}
                   value={scheduleForm.startTime}
-                  onChange={(e) => setScheduleForm((p) => ({ ...p, startTime: e.target.value }))}
+                  onChange={(e) =>
+                    setScheduleForm((p) => ({ ...p, startTime: e.target.value }))
+                  }
                   placeholder="startTime ISO"
                   required
                 />
                 <input
                   className={inputClass}
                   value={scheduleForm.endTime}
-                  onChange={(e) => setScheduleForm((p) => ({ ...p, endTime: e.target.value }))}
+                  onChange={(e) =>
+                    setScheduleForm((p) => ({ ...p, endTime: e.target.value }))
+                  }
                   placeholder="endTime ISO"
                   required
                 />
@@ -235,31 +289,40 @@ const AdminOrdersPage = () => {
                   className={textareaClass}
                   rows={2}
                   value={scheduleForm.location}
-                  onChange={(e) => setScheduleForm((p) => ({ ...p, location: e.target.value }))}
-                  placeholder="Адрес"
+                  onChange={(e) =>
+                    setScheduleForm((p) => ({ ...p, location: e.target.value }))
+                  }
+                  placeholder="Адрес / комментарий"
                   required
                 />
                 <button type="submit" className={subtleButtonClass}>
-                  Отправить POST
+                  Создать выезд
                 </button>
               </form>
-              <form onSubmit={(e) => void scheduleVisit(e, 'update')} className="space-y-2 border-t border-slate-200 pt-3">
-                <p className="font-semibold">Обновить визит (PATCH)</p>
+
+              <form
+                onSubmit={(e) => void scheduleVisit(e, 'update')}
+                className="space-y-2 border-t border-slate-200 pt-3"
+              >
+                <p className="font-semibold">Обновить выезд (PATCH)</p>
                 <input
                   className={inputClass}
                   value={scheduleForm.status}
-                  onChange={(e) => setScheduleForm((p) => ({ ...p, status: e.target.value }))}
-                  placeholder="Новый статус"
+                  onChange={(e) =>
+                    setScheduleForm((p) => ({ ...p, status: e.target.value }))
+                  }
+                  placeholder="Новый статус заказа"
                 />
                 <button type="submit" className={subtleButtonClass}>
-                  Отправить PATCH
+                  Обновить
                 </button>
               </form>
             </div>
           </div>
         </div>
       )}
-      {message && !selected && (
+
+      {message && (
         <div className={cardClass}>
           <p className="text-sm text-slate-700">{message}</p>
         </div>
