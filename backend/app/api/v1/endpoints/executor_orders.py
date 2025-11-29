@@ -115,7 +115,25 @@ def get_order(
         try:
             # Используем функцию get_status_history вместо прямого доступа к relationship
             history_list = order_service.get_status_history(db, order_id)
-            status_history = [OrderStatusHistoryItem.model_validate(h) for h in history_list]
+            for h in history_list:
+                try:
+                    history_item = OrderStatusHistoryItem.model_validate(h)
+                    # Если есть changed_by, добавляем информацию о пользователе
+                    if h.changed_by:
+                        from app.schemas.user import User
+                        history_item.changed_by = User.model_validate(h.changed_by).model_dump()
+                    status_history.append(history_item)
+                except Exception as e:
+                    print(f"Error validating history item {h.id}: {e}")
+                    # Создаем упрощенную версию
+                    status_history.append(OrderStatusHistoryItem(
+                        id=h.id,
+                        orderId=h.order_id,
+                        status=h.status.value if hasattr(h.status, 'value') else str(h.status),
+                        changedByUserId=h.changed_by_id,
+                        changedAt=h.created_at,
+                        comment=h.comment
+                    ))
         except Exception as e:
             import traceback
             print(f"Error processing status_history: {e}")
