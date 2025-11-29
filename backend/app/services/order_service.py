@@ -511,13 +511,21 @@ def get_plan_versions(db: Session, order_id: uuid.UUID) -> list[OrderPlanVersion
 
 
 def get_status_history(db: Session, order_id: uuid.UUID) -> list[OrderStatusHistory]:
-    return list(
-        db.scalars(
-            select(OrderStatusHistory)
-            .where(OrderStatusHistory.order_id == order_id)
-            .order_by(OrderStatusHistory.created_at)
+    """Получить историю статусов заказа с безопасной обработкой ошибок"""
+    try:
+        history = list(
+            db.scalars(
+                select(OrderStatusHistory)
+                .where(OrderStatusHistory.order_id == order_id)
+                .order_by(OrderStatusHistory.created_at)
+            )
         )
-    )
+        return history
+    except Exception as e:
+        import traceback
+        print(f"Error getting status history for order {order_id}: {e}")
+        print(traceback.format_exc())
+        return []
 
 
 def create_calendar_event(
@@ -611,11 +619,20 @@ def update_visit(
     return event
 
 
-def get_executor_calendar(db: Session, executor_id: uuid.UUID) -> list[ExecutorCalendarEvent]:
-    return list(
-        db.scalars(
-            select(ExecutorCalendarEvent).where(
-                ExecutorCalendarEvent.executor_id == executor_id
+def get_executor_calendar(db: Session, executor_id: uuid.UUID | None) -> list[ExecutorCalendarEvent]:
+    """
+    Получить календарь исполнителя.
+    Если executor_id = None (для суперадмина), возвращает все события календаря.
+    """
+    if executor_id is None:
+        # Для суперадмина - все события
+        return list(db.scalars(select(ExecutorCalendarEvent)))
+    else:
+        # Для обычного исполнителя - только его события
+        return list(
+            db.scalars(
+                select(ExecutorCalendarEvent).where(
+                    ExecutorCalendarEvent.executor_id == executor_id
+                )
             )
         )
-    )

@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin, get_db_session
@@ -226,7 +226,29 @@ def get_order(
         # Обрабатываем историю статусов
         status_history_list = []
         try:
-            status_history_list = [OrderStatusHistoryItem.model_validate(h) for h in details.get("statusHistory", [])]
+            # Получаем историю статусов через функцию для надежности
+            from app.services.order_service import get_status_history
+            history = get_status_history(db, order_id)
+            # Преобразуем каждую запись истории с обработкой changed_by
+            for h in history:
+                try:
+                    history_item = OrderStatusHistoryItem.model_validate(h)
+                    # Если есть changed_by, добавляем информацию о пользователе
+                    if h.changed_by:
+                        from app.schemas.user import User
+                        history_item.changed_by = User.model_validate(h.changed_by).model_dump()
+                    status_history_list.append(history_item)
+                except Exception as e:
+                    print(f"Error validating history item {h.id}: {e}")
+                    # Создаем упрощенную версию без changed_by
+                    status_history_list.append(OrderStatusHistoryItem(
+                        id=h.id,
+                        orderId=h.order_id,
+                        status=h.status.value if hasattr(h.status, 'value') else str(h.status),
+                        changedByUserId=h.changed_by_id,
+                        changedAt=h.created_at,
+                        comment=h.comment
+                    ))
         except Exception as e:
             import traceback
             print(f"Error validating status history: {e}")
@@ -426,3 +448,32 @@ def get_all_plan_versions(
         raise HTTPException(status_code=404, detail="Order not found")
     versions = order_service.get_plan_versions(db, order_id)
     return [OrderPlanVersionSchema.model_validate(v) for v in versions]
+
+
+@router.post("/orders/{order_id}/files", response_model=OrderFileSchema, status_code=201, summary="Загрузить файл к заказу")
+def upload_file(
+    order_id: uuid.UUID,
+    upload: UploadFile = File(...),
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
+) -> OrderFileSchema:
+    """Загрузить файл к заказу (админ)"""
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    file = order_service.add_file(db, order, upload, uploaded_by=admin)
+    return OrderFileSchema.model_validate(file)
+
+
+@router.get("/orders/{order_id}/files", response_model=list[OrderFileSchema], summary="Список файлов заказа")
+def get_files(
+    order_id: uuid.UUID,
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
+) -> list[OrderFileSchema]:
+    """Получить список файлов заказа (админ)"""
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    files = order_service.get_order_files(db, order_id)
+    return [OrderFileSchema.model_validate(f) for f in files]

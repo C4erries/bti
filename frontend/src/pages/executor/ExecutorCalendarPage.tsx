@@ -38,14 +38,40 @@ const ExecutorCalendarPage = () => {
   const eventsByDay = useMemo(() => {
     const map: Record<string, ExecutorCalendarEvent[]> = {};
     events.forEach((ev) => {
-      const key = formatDateKey(new Date(ev.startTime));
-      map[key] = map[key] || [];
-      map[key].push(ev);
+      // Событие может длиться несколько дней, добавляем его во все дни диапазона
+      const startDate = new Date(ev.startTime);
+      const endDate = new Date(ev.endTime);
+      
+      // Нормализуем даты (убираем время для корректного сравнения)
+      const start = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+      const end = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+      
+      // Добавляем событие во все дни от start до end включительно
+      const current = new Date(start);
+      while (current <= end) {
+        const key = formatDateKey(current);
+        if (!map[key]) {
+          map[key] = [];
+        }
+        map[key].push(ev);
+        current.setDate(current.getDate() + 1);
+      }
     });
     return map;
   }, [events]);
 
-  const visibleEvents = selectedDay ? eventsByDay[selectedDay] || [] : events;
+  const visibleEvents = useMemo(() => {
+    if (!selectedDay) {
+      return events;
+    }
+    // Фильтруем события для выбранного дня
+    const dayEvents = eventsByDay[selectedDay] || [];
+    // Убираем дубликаты (если событие попало в несколько дней)
+    const uniqueEvents = Array.from(
+      new Map(dayEvents.map(ev => [ev.id, ev])).values()
+    );
+    return uniqueEvents;
+  }, [selectedDay, eventsByDay, events]);
 
   const monthLabel = currentMonth.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
 
@@ -119,18 +145,30 @@ const ExecutorCalendarPage = () => {
             return (
               <button
                 key={key}
-                className={`h-16 rounded-lg border text-left p-2 ${
-                  isSelected ? 'border-blue-500 bg-blue-50' : 'border-slate-200'
-                } ${hasEvents ? 'shadow-inner' : ''}`}
-                onClick={() => setSelectedDay(key)}
+                className={`h-16 rounded-lg border text-left p-2 transition-colors ${
+                  isSelected 
+                    ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-300' 
+                    : hasEvents 
+                    ? 'border-slate-300 bg-slate-100 hover:bg-slate-200' 
+                    : 'border-slate-200 bg-white hover:bg-slate-50'
+                }`}
+                onClick={() => setSelectedDay(isSelected ? null : key)}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold">{day.getDate()}</span>
-                  {hasEvents && <span className={badgeClass}>{eventsByDay[key].length}</span>}
+                  <span className={`font-semibold ${hasEvents ? 'text-slate-800' : 'text-slate-600'}`}>
+                    {day.getDate()}
+                  </span>
+                  {hasEvents && (
+                    <span className={`${badgeClass} bg-blue-500 text-white text-xs`}>
+                      {eventsByDay[key].length}
+                    </span>
+                  )}
                 </div>
-                <div className="mt-1 text-xs text-slate-600">
-                  {hasEvents ? 'Есть выезды' : ''}
-                </div>
+                {hasEvents && (
+                  <div className="mt-1 text-xs text-slate-600">
+                    {eventsByDay[key].length} {eventsByDay[key].length === 1 ? 'выезд' : 'выездов'}
+                  </div>
+                )}
               </button>
             );
           })}

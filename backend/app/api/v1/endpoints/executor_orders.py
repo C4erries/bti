@@ -39,6 +39,85 @@ def _ensure_executor(user):
         raise HTTPException(status_code=403, detail="Executor profile required")
 
 
+def _build_executor_order_details(db: Session, order, order_id: uuid.UUID) -> ExecutorOrderDetails:
+    """Вспомогательная функция для построения ExecutorOrderDetails из заказа"""
+    try:
+        # Получаем версии планов безопасно
+        plan_versions = getattr(order, 'plan_versions', []) or []
+        plan_original = next((p for p in plan_versions if p.version_type.upper() == "ORIGINAL"), None)
+        plan_modified = next((p for p in plan_versions if p.version_type.upper() == "MODIFIED"), None)
+        
+        # Получаем назначение безопасно
+        assignments = getattr(order, 'assignments', []) or []
+        assignment = assignments[0] if assignments else None
+        executor_assignment = None
+        if assignment:
+            try:
+                executor_assignment = {
+                    "executorId": assignment.executor_id,
+                    "status": assignment.status.value if hasattr(assignment.status, "value") else str(assignment.status),
+                    "assignedAt": assignment.assigned_at,
+                    "assignedByUserId": assignment.assigned_by_id,
+                }
+            except Exception as e:
+                print(f"Error building executor_assignment: {e}")
+        
+        # Получаем файлы безопасно
+        files = []
+        try:
+            files = [OrderFile.model_validate(f) for f in (getattr(order, 'files', []) or [])]
+        except Exception as e:
+            print(f"Error processing files: {e}")
+        
+        # Получаем историю статусов безопасно
+        status_history = []
+        try:
+            # Используем функцию get_status_history вместо прямого доступа к relationship
+            history_list = order_service.get_status_history(db, order_id)
+            for h in history_list:
+                try:
+                    history_item = OrderStatusHistoryItem.model_validate(h)
+                    # Если есть changed_by, добавляем информацию о пользователе
+                    if h.changed_by:
+                        from app.schemas.user import User
+                        history_item.changed_by = User.model_validate(h.changed_by).model_dump()
+                    status_history.append(history_item)
+                except Exception as e:
+                    print(f"Error validating history item {h.id}: {e}")
+                    # Создаем упрощенную версию
+                    status_history.append(OrderStatusHistoryItem(
+                        id=h.id,
+                        orderId=h.order_id,
+                        status=h.status.value if hasattr(h.status, 'value') else str(h.status),
+                        changedByUserId=h.changed_by_id,
+                        changedAt=h.created_at,
+                        comment=h.comment
+                    ))
+        except Exception as e:
+            import traceback
+            print(f"Error processing status_history: {e}")
+            print(traceback.format_exc())
+        
+        # Преобразуем планы в OrderPlanVersion если они есть
+        plan_original_version = OrderPlanVersion.model_validate(plan_original) if plan_original else None
+        plan_modified_version = OrderPlanVersion.model_validate(plan_modified) if plan_modified else None
+        
+        return ExecutorOrderDetails(
+            order=order,
+            files=files,
+            planOriginal=plan_original_version,
+            planModified=plan_modified_version,
+            statusHistory=status_history,
+            client=order.client,
+            executorAssignment=executor_assignment,
+        )
+    except Exception as e:
+        import traceback
+        print(f"Error in _build_executor_order_details: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error retrieving order details: {str(e)}")
+
+
 @router.get("/orders", response_model=list[ExecutorOrderListItem])
 def list_executor_orders(
     status: str | None = Query(default=None),
@@ -81,28 +160,7 @@ def get_order(
     order = order_service.get_order(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    plan_original = next((p for p in order.plan_versions if p.version_type.upper() == "ORIGINAL"), None)
-    plan_modified = next((p for p in order.plan_versions if p.version_type.upper() == "MODIFIED"), None)
-    assignment = order.assignments[0] if order.assignments else None
-    executor_assignment = (
-        {
-            "executorId": assignment.executor_id,
-            "status": assignment.status.value if hasattr(assignment.status, "value") else assignment.status,
-            "assignedAt": assignment.assigned_at,
-            "assignedByUserId": assignment.assigned_by_id,
-        }
-        if assignment
-        else None
-    )
-    return ExecutorOrderDetails(
-        order=order,
-        files=[OrderFile.model_validate(f) for f in order.files],
-        planOriginal=plan_original,
-        planModified=plan_modified,
-        statusHistory=[OrderStatusHistoryItem.model_validate(h) for h in order.status_history],
-        client=order.client,
-        executorAssignment=executor_assignment,
-    )
+    return _build_executor_order_details(db, order, order_id)
 
 
 @router.post("/orders/{order_id}/take", response_model=ExecutorOrderDetails)
@@ -117,7 +175,7 @@ def take_order(
         raise HTTPException(status_code=404, detail="Order not found")
     order_service.executor_take_order(db, order, current_user)
     db.refresh(order)
-    return get_order(order_id, db, current_user)
+    return _build_executor_order_details(db, order, order_id)
 
 
 @router.post("/orders/{order_id}/decline", response_model=ExecutorOrderDetails)
@@ -132,7 +190,7 @@ def decline_order(
         raise HTTPException(status_code=404, detail="Order not found")
     order_service.executor_decline_order(db, order, current_user)
     db.refresh(order)
-    return get_order(order_id, db, current_user)
+    return _build_executor_order_details(db, order, order_id)
 
 
 @router.get("/orders/{order_id}/files", response_model=list[OrderFile])
@@ -153,8 +211,38 @@ def list_status_history(
     current_user=Depends(get_current_user),
 ) -> list[OrderStatusHistoryItem]:
     _ensure_executor(current_user)
-    history = order_service.get_status_history(db, order_id)
-    return [OrderStatusHistoryItem.model_validate(h) for h in history]
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    try:
+        history = order_service.get_status_history(db, order_id)
+        result = []
+        for h in history:
+            try:
+                history_item = OrderStatusHistoryItem.model_validate(h)
+                # Если есть changed_by, добавляем информацию о пользователе
+                if h.changed_by:
+                    from app.schemas.user import User
+                    history_item.changed_by = User.model_validate(h.changed_by).model_dump()
+                result.append(history_item)
+            except Exception as e:
+                print(f"Error validating history item {h.id}: {e}")
+                # Создаем упрощенную версию
+                result.append(OrderStatusHistoryItem(
+                    id=h.id,
+                    orderId=h.order_id,
+                    status=h.status.value if hasattr(h.status, 'value') else str(h.status),
+                    changedByUserId=h.changed_by_id,
+                    changedAt=h.created_at,
+                    comment=h.comment
+                ))
+        return result
+    except Exception as e:
+        import traceback
+        print(f"Error in list_status_history: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error retrieving status history: {str(e)}")
 
 
 @router.get("/orders/{order_id}/available-slots", response_model=list[AvailableSlot])

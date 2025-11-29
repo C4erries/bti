@@ -16,6 +16,7 @@ import type {
   User,
   OrderStatusHistoryItem,
   OrderPlanVersion,
+  OrderFile,
 } from '../../types';
 
 const ORDER_STATUSES = [
@@ -50,6 +51,9 @@ const AdminOrdersPage = () => {
     comment: string;
   }>({ type: null, comment: '' });
   const [selectedPlanVersion, setSelectedPlanVersion] = useState<OrderPlanVersion | null>(null);
+  const [files, setFiles] = useState<OrderFile[]>([]);
+  const [fileToUpload, setFileToUpload] = useState<File | null>(null);
+  const [activeDetailTab, setActiveDetailTab] = useState<'info' | 'files' | 'plans' | 'history'>('info');
 
   useEffect(() => {
     if (token) {
@@ -128,8 +132,43 @@ const AdminOrdersPage = () => {
     try {
       const data = await apiFetch<AdminOrderDetails>(`/admin/orders/${id}`, {}, token);
       setSelected(data);
+      await loadFiles(id);
     } catch (error: any) {
       setMessage(`Ошибка загрузки заказа: ${error.message}`);
+    }
+  };
+
+  const loadFiles = async (orderId: string) => {
+    if (!token) return;
+    try {
+      const data = await apiFetch<OrderFile[]>(`/admin/orders/${orderId}/files`, {}, token);
+      setFiles(data || []);
+    } catch (error: any) {
+      console.error('Failed to load files:', error);
+      setFiles([]);
+    }
+  };
+
+  const uploadFile = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selected || !token || !fileToUpload) return;
+    try {
+      const formData = new FormData();
+      formData.append('upload', fileToUpload);
+      await apiFetch<OrderFile>(
+        `/admin/orders/${selected.order.id}/files`,
+        {
+          method: 'POST',
+          data: formData,
+          isFormData: true,
+        },
+        token,
+      );
+      setMessage('Файл загружен');
+      setFileToUpload(null);
+      await loadFiles(selected.order.id);
+    } catch (error: any) {
+      setMessage(`Ошибка загрузки файла: ${error.message}`);
     }
   };
 
@@ -460,59 +499,163 @@ const AdminOrdersPage = () => {
           <div className="mt-6">
             <div className="flex border-b border-slate-200">
               <button
-                className="px-4 py-2 text-sm font-medium border-b-2 border-blue-600 text-blue-600"
-                onClick={() => void loadPlanVersions(selected.order.id)}
+                className={`px-4 py-2 text-sm font-medium ${
+                  activeDetailTab === 'info'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                onClick={() => setActiveDetailTab('info')}
+              >
+                Информация
+              </button>
+              <button
+                className={`px-4 py-2 text-sm font-medium ${
+                  activeDetailTab === 'files'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                onClick={() => {
+                  setActiveDetailTab('files');
+                  void loadFiles(selected.order.id);
+                }}
+              >
+                Файлы ({files.length})
+              </button>
+              <button
+                className={`px-4 py-2 text-sm font-medium ${
+                  activeDetailTab === 'plans'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                onClick={() => {
+                  setActiveDetailTab('plans');
+                  void loadPlanVersions(selected.order.id);
+                }}
               >
                 Версии плана
               </button>
+              <button
+                className={`px-4 py-2 text-sm font-medium ${
+                  activeDetailTab === 'history'
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                onClick={() => setActiveDetailTab('history')}
+              >
+                История
+              </button>
             </div>
 
-            {/* Версии планов */}
-            <div className="mt-4">
-              {selected.planVersions.length === 0 ? (
-                <p className="text-sm text-slate-500">Версии плана не найдены</p>
-              ) : (
-                <div className="space-y-3">
-                  {selected.planVersions.map((version) => (
-                    <div
-                      key={version.id}
-                      className="rounded border border-slate-200 p-3 cursor-pointer hover:bg-slate-50"
-                      onClick={() => setSelectedPlanVersion(version)}
-                    >
-                      <div className="flex items-center justify-between">
+            {/* Содержимое вкладок */}
+            {activeDetailTab === 'info' && (
+              <div className="mt-4">
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div>
+                    <h5 className="font-semibold text-slate-700">Описание</h5>
+                    <p className="text-sm text-slate-600">{selected.order.description || '—'}</p>
+                  </div>
+                  <div>
+                    <h5 className="font-semibold text-slate-700">Адрес</h5>
+                    <p className="text-sm text-slate-600">{selected.order.address || '—'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeDetailTab === 'files' && (
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h5 className="font-semibold text-slate-700">Файлы заказа</h5>
+                  <form className="flex items-center gap-2" onSubmit={uploadFile}>
+                    <input
+                      type="file"
+                      className="text-sm"
+                      onChange={(e) => setFileToUpload(e.target.files?.[0] ?? null)}
+                    />
+                    <button type="submit" className={buttonClass} disabled={!fileToUpload}>
+                      Загрузить
+                    </button>
+                  </form>
+                </div>
+                {files.length === 0 ? (
+                  <p className="text-sm text-slate-500">Файлы отсутствуют</p>
+                ) : (
+                  <div className="space-y-2">
+                    {files.map((f) => (
+                      <div
+                        key={f.id}
+                        className="flex items-center justify-between rounded border border-slate-200 p-3"
+                      >
                         <div>
-                          <span className="font-semibold text-sm">{version.versionType}</span>
-                          {version.comment && (
-                            <p className="text-xs text-slate-600 mt-1">{version.comment}</p>
+                          <span className="font-medium text-sm">{f.filename}</span>
+                          {f.uploadedBy && (
+                            <p className="text-xs text-slate-500">Загружен: {f.uploadedBy}</p>
                           )}
                         </div>
-                        <span className="text-xs text-slate-500">
-                          {formatDate(version.createdAt)}
-                        </span>
+                        <a
+                          className="text-blue-600 hover:text-blue-800 text-sm"
+                          href={f.path}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Открыть
+                        </a>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeDetailTab === 'plans' && (
+              <div className="mt-4">
+
+                {selected.planVersions.length === 0 ? (
+                  <p className="text-sm text-slate-500">Версии плана не найдены</p>
+                ) : (
+                  <div className="space-y-3">
+                    {selected.planVersions.map((version) => (
+                      <div
+                        key={version.id}
+                        className="rounded border border-slate-200 p-3 cursor-pointer hover:bg-slate-50"
+                        onClick={() => setSelectedPlanVersion(version)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-semibold text-sm">{version.versionType}</span>
+                            {version.comment && (
+                              <p className="text-xs text-slate-600 mt-1">{version.comment}</p>
+                            )}
+                          </div>
+                          <span className="text-xs text-slate-500">
+                            {formatDate(version.createdAt)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeDetailTab === 'history' && (
+              <div className="mt-4">
+                <h5 className="font-semibold text-slate-700 mb-3">История статусов</h5>
+                <div className="space-y-2">
+                  {selected.statusHistory.map((item, idx) => (
+                    <div key={idx} className="rounded border border-slate-200 p-2 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{item.status}</span>
+                        <span className="text-xs text-slate-500">{formatDate(item.changedAt)}</span>
+                      </div>
+                      {item.comment && (
+                        <p className="text-xs text-slate-600 mt-1">{item.comment}</p>
+                      )}
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-
-            {/* История статусов */}
-            <div className="mt-6">
-              <h5 className="font-semibold text-slate-700 mb-3">История статусов</h5>
-              <div className="space-y-2">
-                {selected.statusHistory.map((item, idx) => (
-                  <div key={idx} className="rounded border border-slate-200 p-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{item.status}</span>
-                      <span className="text-xs text-slate-500">{formatDate(item.changedAt)}</span>
-                    </div>
-                    {item.comment && (
-                      <p className="text-xs text-slate-600 mt-1">{item.comment}</p>
-                    )}
-                  </div>
-                ))}
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
