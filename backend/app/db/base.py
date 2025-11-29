@@ -11,6 +11,8 @@ from app.models.order import (
     ExecutorCalendarEvent,
 )
 from app.models.chat import ChatThread
+from app.models.ai_rule import AIRule, RiskType
+from app.models.error_log import ErrorLog, ErrorType, ErrorSeverity, ErrorStatus
 
 __all__ = [
     "Base",
@@ -29,4 +31,10 @@ __all__ = [
     "ExecutorAssignment",
     "ExecutorCalendarEvent",
     "ChatThread",
+    "AIRule",
+    "RiskType",
+    "ErrorLog",
+    "ErrorType",
+    "ErrorSeverity",
+    "ErrorStatus",
 ]
