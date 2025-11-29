@@ -330,16 +330,30 @@ def executor_decline_order(db: Session, order: Order, executor: User) -> Executo
 
 
 def get_executor_orders(
-    db: Session, executor_id: uuid.UUID, status_filter: list[OrderStatus] | OrderStatus | None = None, department_code: str | None = None
+    db: Session, executor_id: uuid.UUID | None, status_filter: list[OrderStatus] | OrderStatus | None = None, department_code: str | None = None
 ) -> list[Order]:
-    query = (
-        select(Order)
-        .join(ExecutorAssignment, ExecutorAssignment.order_id == Order.id)
-        .where(
-            ExecutorAssignment.executor_id == executor_id,
-            ExecutorAssignment.status != AssignmentStatus.DECLINED,
+    """
+    Получить заказы исполнителя.
+    Если executor_id = None (для суперадмина), возвращает все заказы с назначениями.
+    """
+    if executor_id is None:
+        # Для суперадмина - все заказы с назначениями
+        query = (
+            select(Order)
+            .join(ExecutorAssignment, ExecutorAssignment.order_id == Order.id)
+            .where(ExecutorAssignment.status != AssignmentStatus.DECLINED)
         )
-    )
+    else:
+        # Для обычного исполнителя - только его заказы
+        query = (
+            select(Order)
+            .join(ExecutorAssignment, ExecutorAssignment.order_id == Order.id)
+            .where(
+                ExecutorAssignment.executor_id == executor_id,
+                ExecutorAssignment.status != AssignmentStatus.DECLINED,
+            )
+        )
+    
     if status_filter:
         if isinstance(status_filter, list):
             query = query.where(Order.status.in_(status_filter))
