@@ -1,41 +1,127 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin, get_db_session
+from app.models.order import (
+    ExecutorAssignment,
+    OrderFile,
+    OrderPlanVersion,
+    OrderStatus,
+)
 from app.schemas.orders import (
     AdminUpdateOrderRequest,
+    AdminOrderDetails,
+    AdminOrderListItem,
+    AdminSendForRevisionRequest,
+    AdminApproveOrderRequest,
+    AdminRejectOrderRequest,
+    AdminAddCommentRequest,
     AssignExecutorRequest,
     Order,
+    OrderFile as OrderFileSchema,
+    OrderPlanVersion as OrderPlanVersionSchema,
+    OrderStatusHistoryItem,
     ScheduleVisitRequest,
     ScheduleVisitUpdateRequest,
     ExecutorCalendarEvent,
 )
 from app.services import order_service, user_service
+from sqlalchemy import select, func
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
 
-@router.get("/orders", response_model=list[Order], summary="Список заказов (админ)")
+@router.get("/orders", response_model=list[AdminOrderListItem], summary="Список заказов (админ)")
 def list_orders(
+    status: str | None = Query(default=None, description="Фильтр по статусу"),
+    executor_id: uuid.UUID | None = Query(default=None, description="Фильтр по исполнителю"),
+    department_code: str | None = Query(default=None, description="Фильтр по отделу"),
     db: Session = Depends(get_db_session),
     admin=Depends(get_current_admin),
-) -> list[Order]:
-    orders = order_service.list_admin_orders(db)
-    return [Order.model_validate(o) for o in orders]
+) -> list[AdminOrderListItem]:
+    """Список заказов с фильтрами для админ-панели"""
+    orders = order_service.list_admin_orders(db, status=status, executor_id=executor_id, department_code=department_code)
+    
+    result = []
+    for order in orders:
+        # Клиент
+        client = user_service.get_user_by_id(db, order.client_id)
+        
+        # Исполнитель
+        executor = None
+        executor_comment = None
+        assignment = db.scalar(
+            select(ExecutorAssignment)
+            .where(ExecutorAssignment.order_id == order.id)
+            .order_by(ExecutorAssignment.assigned_at.desc())
+            .limit(1)
+        )
+        if assignment:
+            executor = user_service.get_user_by_id(db, assignment.executor_id)
+            # Получаем последний комментарий из истории статусов
+            from app.services.order_service import get_status_history
+            history = get_status_history(db, order.id)
+            if history:
+                executor_comment = history[-1].comment
+        
+        # Количество файлов
+        files_count = db.scalar(
+            select(func.count()).select_from(OrderFile).where(OrderFile.order_id == order.id)
+        ) or 0
+        
+        # Название услуги
+        service_title = None
+        if order.service_code:
+            from app.models.directory import Service
+            service = db.get(Service, order.service_code)
+            if service:
+                service_title = service.name
+        
+        result.append(AdminOrderListItem(
+            id=order.id,
+            status=order.status.value if hasattr(order.status, 'value') else str(order.status),
+            title=order.title,
+            description=order.description,
+            serviceCode=order.service_code,
+            serviceTitle=service_title,
+            clientId=order.client_id,
+            clientName=client.full_name if client else None,
+            executorId=executor.id if executor else None,
+            executorName=executor.full_name if executor else None,
+            currentDepartmentCode=order.current_department_code,
+            totalPrice=order.total_price,
+            filesCount=files_count,
+            createdAt=order.created_at,
+            plannedVisitAt=order.planned_visit_at,
+            completedAt=order.completed_at,
+            executorComment=executor_comment,
+        ))
+    
+    return result
 
 
-@router.get("/orders/{order_id}", response_model=Order, summary="Детали заказа (админ)")
+@router.get("/orders/{order_id}", response_model=AdminOrderDetails, summary="Детали заказа (админ)")
 def get_order(
     order_id: uuid.UUID,
     db: Session = Depends(get_db_session),
     admin=Depends(get_current_admin),
-) -> Order:
-    order = order_service.get_order(db, order_id)
-    if not order:
+) -> AdminOrderDetails:
+    """Детальная информация о заказе для админ-панели"""
+    details = order_service.get_admin_order_details(db, order_id)
+    if not details:
         raise HTTPException(status_code=404, detail="Order not found")
-    return Order.model_validate(order)
+    
+    return AdminOrderDetails(
+        order=Order.model_validate(details["order"]),
+        client=details["client"],
+        executor=details["executor"],
+        executorAssignment=details["executorAssignment"],
+        files=[OrderFileSchema.model_validate(f) for f in details["files"]],
+        planVersions=[OrderPlanVersionSchema.model_validate(v) for v in details["planVersions"]],
+        statusHistory=[OrderStatusHistoryItem.model_validate(h) for h in details["statusHistory"]],
+    )
 
 
 @router.patch("/orders/{order_id}", response_model=Order, summary="Обновление заказа (админ)")
@@ -120,3 +206,82 @@ def update_visit(
         status_value=payload.status,
     )
     return ExecutorCalendarEvent.model_validate(event)
+
+
+@router.post("/orders/{order_id}/send-for-revision", response_model=Order, summary="Отправить заказ на доработку")
+def send_for_revision(
+    order_id: uuid.UUID,
+    payload: AdminSendForRevisionRequest,
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
+) -> Order:
+    """Отправить заказ на доработку с комментарием"""
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order_service.admin_send_for_revision(db, order, admin, payload.comment)
+    db.refresh(order)
+    return Order.model_validate(order)
+
+
+@router.post("/orders/{order_id}/approve", response_model=Order, summary="Утвердить заказ")
+def approve_order(
+    order_id: uuid.UUID,
+    payload: AdminApproveOrderRequest,
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
+) -> Order:
+    """Утвердить заказ"""
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order_service.admin_approve_order(db, order, admin, payload.comment)
+    db.refresh(order)
+    return Order.model_validate(order)
+
+
+@router.post("/orders/{order_id}/reject", response_model=Order, summary="Отклонить заказ")
+def reject_order(
+    order_id: uuid.UUID,
+    payload: AdminRejectOrderRequest,
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
+) -> Order:
+    """Отклонить заказ с комментарием"""
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    order_service.admin_reject_order(db, order, admin, payload.comment)
+    db.refresh(order)
+    return Order.model_validate(order)
+
+
+@router.post("/orders/{order_id}/comment", response_model=Order, summary="Добавить комментарий к заказу")
+def add_comment(
+    order_id: uuid.UUID,
+    payload: AdminAddCommentRequest,
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
+) -> Order:
+    """Добавить комментарий к заказу (без изменения статуса)"""
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    # Добавляем комментарий через историю статусов с текущим статусом
+    order_service.add_status_history(db, order, order.status, admin, payload.comment)
+    db.refresh(order)
+    return Order.model_validate(order)
+
+
+@router.get("/orders/{order_id}/plan/versions", response_model=list[OrderPlanVersionSchema], summary="Все версии плана заказа")
+def get_all_plan_versions(
+    order_id: uuid.UUID,
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
+) -> list[OrderPlanVersionSchema]:
+    """Получить все версии плана заказа для модерации"""
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    versions = order_service.get_plan_versions(db, order_id)
+    return [OrderPlanVersionSchema.model_validate(v) for v in versions]

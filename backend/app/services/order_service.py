@@ -103,8 +103,100 @@ def add_status_history(
     return history
 
 
-def list_admin_orders(db: Session) -> list[Order]:
-    return list(db.scalars(select(Order)))
+def list_admin_orders(
+    db: Session,
+    status: OrderStatus | str | None = None,
+    executor_id: uuid.UUID | None = None,
+    department_code: str | None = None,
+) -> list[Order]:
+    """Список заказов для админ-панели с фильтрами"""
+    query = select(Order)
+    
+    if status:
+        if isinstance(status, str):
+            try:
+                status_enum = OrderStatus(status)
+            except ValueError:
+                # Если статус не валидный, игнорируем фильтр
+                status_enum = None
+        else:
+            status_enum = status
+        if status_enum:
+            query = query.where(Order.status == status_enum)
+    
+    if executor_id:
+        query = (
+            query.join(ExecutorAssignment, ExecutorAssignment.order_id == Order.id)
+            .where(ExecutorAssignment.executor_id == executor_id)
+        )
+    
+    if department_code:
+        query = query.where(Order.current_department_code == department_code)
+    
+    return list(db.scalars(query.order_by(Order.created_at.desc())))
+
+
+def get_admin_order_details(db: Session, order_id: uuid.UUID) -> dict:
+    """Получить детальную информацию о заказе для админ-панели"""
+    order = get_order(db, order_id)
+    if not order:
+        return None
+    
+    # Клиент
+    client = user_service.get_user_by_id(db, order.client_id)
+    
+    # Исполнитель
+    executor = None
+    executor_assignment = None
+    assignment = db.scalar(
+        select(ExecutorAssignment)
+        .where(ExecutorAssignment.order_id == order_id)
+        .order_by(ExecutorAssignment.assigned_at.desc())
+        .limit(1)
+    )
+    if assignment:
+        executor = user_service.get_user_by_id(db, assignment.executor_id)
+        executor_assignment = {
+            "id": assignment.id,
+            "executorId": assignment.executor_id,
+            "status": assignment.status.value if hasattr(assignment.status, 'value') else str(assignment.status),
+            "assignedAt": assignment.assigned_at.isoformat() if assignment.assigned_at else None,
+        }
+    
+    # Файлы
+    files = list(db.scalars(select(OrderFile).where(OrderFile.order_id == order_id)))
+    
+    # Версии планов
+    plan_versions = get_plan_versions(db, order_id)
+    
+    # История статусов
+    status_history = get_status_history(db, order_id)
+    
+    return {
+        "order": order,
+        "client": client,
+        "executor": executor,
+        "executorAssignment": executor_assignment,
+        "files": files,
+        "planVersions": plan_versions,
+        "statusHistory": status_history,
+    }
+
+
+def admin_send_for_revision(db: Session, order: Order, admin: User, comment: str) -> OrderStatusHistory:
+    """Отправить заказ на доработку"""
+    # Переводим в статус SUBMITTED для повторной обработки
+    return add_status_history(db, order, OrderStatus.SUBMITTED, admin, comment)
+
+
+def admin_approve_order(db: Session, order: Order, admin: User, comment: str | None) -> OrderStatusHistory:
+    """Утвердить заказ"""
+    return add_status_history(db, order, OrderStatus.COMPLETED, admin, comment)
+
+
+def admin_reject_order(db: Session, order: Order, admin: User, comment: str) -> OrderStatusHistory:
+    """Отклонить заказ"""
+    return add_status_history(db, order, OrderStatus.REJECTED, admin, comment)
 
 
 def assign_executor(

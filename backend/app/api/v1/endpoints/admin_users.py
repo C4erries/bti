@@ -1,12 +1,13 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin, get_db_session
 from app.schemas.user import (
     ExecutorCreateRequest,
     ExecutorDetails,
+    ExecutorAnalytics,
     User,
     UserUpdateAdmin,
 )
@@ -80,3 +81,41 @@ def update_user(
         raise HTTPException(status_code=404, detail="User not found")
     user = user_service.update_user_admin(db, user, data)
     return User.model_validate(user)
+
+
+@router.get("/executors/analytics", response_model=list[ExecutorAnalytics], summary="Аналитика загрузки исполнителей")
+def list_executors_analytics(
+    department_code: str | None = Query(default=None, description="Фильтр по отделу"),
+    search: str | None = Query(default=None, description="Поиск по ФИО или email"),
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
+) -> list[ExecutorAnalytics]:
+    """Получить список исполнителей с аналитикой загрузки"""
+    # Нормализуем параметры (убираем пробелы, None если пусто)
+    dept_code = None
+    if department_code:
+        dept_code = department_code.strip()
+        if not dept_code:  # Если после strip пустая строка
+            dept_code = None
+    
+    search_term = None
+    if search:
+        search_term = search.strip()
+        if not search_term:  # Если после strip пустая строка
+            search_term = None
+    
+    analytics = executor_service.list_executors_with_analytics(db, dept_code, search_term)
+    return analytics
+
+
+@router.get("/executors/{executor_id}/analytics", response_model=ExecutorAnalytics, summary="Аналитика по конкретному исполнителю")
+def get_executor_analytics(
+    executor_id: uuid.UUID,
+    db: Session = Depends(get_db_session),
+    admin=Depends(get_current_admin),
+) -> ExecutorAnalytics:
+    """Получить аналитику по конкретному исполнителю"""
+    analytics = executor_service.get_executor_analytics(db, executor_id)
+    if not analytics:
+        raise HTTPException(status_code=404, detail="Executor not found or has no profile")
+    return analytics

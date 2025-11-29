@@ -21,19 +21,22 @@ app = FastAPI(
     },
 )
 
+# CORS middleware должен быть добавлен ДО роутеров
+# В режиме разработки разрешаем все origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # В разработке разрешаем все origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Разрешаем все методы
+    allow_headers=["*"],  # Разрешаем все заголовки
+    expose_headers=["*"],
+)
+
 # create tables and seed minimal data for development
 Base.metadata.create_all(bind=engine)
 init_data()
 
 app.include_router(api_router, prefix=settings.api_v1_prefix)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 static_dir = Path(settings.static_root)
 static_dir.mkdir(parents=True, exist_ok=True)

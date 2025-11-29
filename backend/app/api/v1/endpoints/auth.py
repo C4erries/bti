@@ -22,6 +22,15 @@ def register_client(data: RegisterClientRequest, db: Session = Depends(get_db_se
         return User.model_validate(user)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as e:
+        # Логируем неожиданные ошибки для отладки
+        import traceback
+        print(f"Register error: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(e)}"
+        ) from e
 
 
 @router.post(
@@ -31,7 +40,19 @@ def register_client(data: RegisterClientRequest, db: Session = Depends(get_db_se
     tags=["Auth"],
 )
 def login(data: LoginRequest, db: Session = Depends(get_db_session)) -> AuthTokenResponse:
-    return auth_service.login(db, data)
+    try:
+        return auth_service.login(db, data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Логируем неожиданные ошибки для отладки
+        import traceback
+        print(f"Login error: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(e)}"
+        ) from e
 
 
 @router.get(

@@ -61,3 +61,19 @@ ExecutorCreateRequest = RegisterExecutorRequest
 UserUpdateAdmin = UpdateUserRequest
 UserRead = User
 UserDetail = ExecutorDetails
+
+
+class ExecutorAnalytics(BaseModel):
+    """Аналитика по исполнителю"""
+    executor_id: uuid.UUID = Field(alias="executorId")
+    full_name: str = Field(alias="fullName")
+    email: EmailStr
+    department_code: str | None = Field(default=None, alias="departmentCode")
+    current_load: int = Field(alias="currentLoad", description="Текущие задачи")
+    last_activity: datetime | None = Field(default=None, alias="lastActivity", description="Последняя активность")
+    avg_completion_days: float | None = Field(default=None, alias="avgCompletionDays", description="Среднее время выполнения заказов (дни)")
+    errors_rejections: int = Field(alias="errorsRejections", description="Ошибки/отказы")
+    total_completed: int = Field(alias="totalCompleted", description="Всего выполнено заказов")
+    total_assigned: int = Field(alias="totalAssigned", description="Всего назначено заказов")
+    
+    model_config = ConfigDict(populate_by_name=True)

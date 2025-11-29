@@ -89,6 +89,7 @@ export interface OrderStatusHistoryItem {
   status: string;
   changedByUserId?: string | null;
   changedAt: string;
+  comment?: string | null;
 }
 
 export interface ExecutorOrderListItem {
@@ -242,4 +243,52 @@ export interface PriceEstimateResponse {
 export interface Department {
   code: string;
   name?: string | null;
+}
+
+export interface ExecutorAnalytics {
+  executorId: string;
+  fullName: string;
+  email: string;
+  departmentCode?: string | null;
+  currentLoad: number;
+  lastActivity?: string | null;
+  avgCompletionDays?: number | null;
+  errorsRejections: number;
+  totalCompleted: number;
+  totalAssigned: number;
+}
+
+export interface AdminOrderListItem {
+  id: string;
+  status: string;
+  title: string;
+  description?: string | null;
+  serviceCode: number;
+  serviceTitle?: string | null;
+  clientId: string;
+  clientName?: string | null;
+  executorId?: string | null;
+  executorName?: string | null;
+  currentDepartmentCode?: string | null;
+  totalPrice?: number | null;
+  filesCount: number;
+  createdAt: string;
+  plannedVisitAt?: string | null;
+  completedAt?: string | null;
+  executorComment?: string | null;
+}
+
+export interface AdminOrderDetails {
+  order: Order;
+  client?: User | null;
+  executor?: User | null;
+  executorAssignment?: {
+    id: string;
+    executorId: string;
+    status: string;
+    assignedAt?: string | null;
+  } | null;
+  files: OrderFile[];
+  planVersions: OrderPlanVersion[];
+  statusHistory: OrderStatusHistoryItem[];
 }
