@@ -95,6 +95,18 @@ def init_users(db: Session):
                 is_admin=True,
             ),
         )
+    if not user_service.get_user_by_email(db, "superadmin@example.com"):
+        user_service.create_user(
+            db,
+            UserCreate(
+                email="superadmin@example.com",
+                password="superadmin123",
+                full_name="Super Admin",
+                phone="+70000000003",
+                is_admin=True,
+                is_superadmin=True,
+            ),
+        )
 
 
 def init_orders(db: Session):

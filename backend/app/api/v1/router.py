@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (
     executor_orders,
     pricing,
     public,
+    websocket_chat,
 )
 
 api_router = APIRouter()
@@ -27,4 +28,5 @@ api_router.include_router(admin_orders.router)
 api_router.include_router(admin_directories.router)
 api_router.include_router(admin_ai_rules.router)
 api_router.include_router(admin_error_logs.router)
+api_router.include_router(websocket_chat.router)
 api_router.include_router(pricing.router)

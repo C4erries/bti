@@ -105,7 +105,7 @@ def delegate_to_ai(db: Session, chat: ChatThread, user_message: ChatMessageCreat
 
 
 def ensure_access(chat: ChatThread, user: User, db: Session) -> None:
-    if user.is_admin:
+    if user.is_admin or user.is_superadmin:
         return
     if chat.client_id == user.id:
         return

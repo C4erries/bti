@@ -5,6 +5,7 @@
 - Клиент: `client@example.com` / `client123`
 - Исполнитель: `executor@example.com` / `executor123`
 - Администратор: `admin@example.com` / `admin123`
+- Суперадмин: `superadmin@example.com` / `superadmin123` (полные полномочия на все операции)
 
 > Сидинг выполняется при старте приложения (см. `backend/app/db/init_data.py`), повторный запуск не делает дубликаты.
 

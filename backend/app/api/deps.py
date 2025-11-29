@@ -75,8 +75,18 @@ def get_optional_current_user(
 
 
 def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
-    if not current_user.is_admin:
+    """Проверка доступа админа или суперадмина"""
+    if not (current_user.is_admin or current_user.is_superadmin):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required"
+        )
+    return current_user
+
+
+def get_current_superadmin(current_user: User = Depends(get_current_user)) -> User:
+    """Проверка доступа суперадмина (только суперадмин)"""
+    if not current_user.is_superadmin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Superadmin access required"
         )
     return current_user

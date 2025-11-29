@@ -17,6 +17,7 @@ class User(Base):
     full_name: Mapped[str | None] = mapped_column(String(255))
     phone: Mapped[str | None] = mapped_column(String(50))
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    is_superadmin: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0", nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow

@@ -67,7 +67,7 @@ def _check_chat_access(db: Session, chat, user):
 
 
 def _sender_type(user) -> str:
-    if user.is_admin:
+    if user.is_admin or user.is_superadmin:
         return "ADMIN"
     if user.executor_profile:
         return "EXECUTOR"
@@ -105,7 +105,7 @@ def post_message(
 
 
 def _ensure_order_access(order: Order, user, db: Session):
-    if user.is_admin or order.client_id == user.id:
+    if user.is_admin or user.is_superadmin or order.client_id == user.id:
         return
     assignment = db.scalar(
         select(ExecutorAssignment).where(

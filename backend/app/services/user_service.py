@@ -49,6 +49,7 @@ def create_user(db: Session, data: UserCreate) -> User:
         phone=data.phone,
         password_hash=get_password_hash(data.password),
         is_admin=data.is_admin,
+        is_superadmin=getattr(data, "is_superadmin", False),
     )
     db.add(user)
     db.commit()
@@ -73,6 +74,7 @@ def create_executor(db: Session, data: ExecutorCreateRequest) -> User:
             full_name=data.full_name,
             phone=data.phone,
             is_admin=data.is_admin if hasattr(data, "is_admin") and data.is_admin is not None else False,
+            is_superadmin=data.is_superadmin if hasattr(data, "is_superadmin") and data.is_superadmin is not None else False,
         ),
     )
     profile = ExecutorProfile(
@@ -94,6 +96,8 @@ def update_user_admin(db: Session, user: User, data: UserUpdateAdmin) -> User:
         user.phone = data.phone
     if data.is_admin is not None:
         user.is_admin = data.is_admin
+    if data.is_superadmin is not None:
+        user.is_superadmin = data.is_superadmin
     if data.is_blocked is not None:
         user.is_blocked = data.is_blocked
     db.add(user)

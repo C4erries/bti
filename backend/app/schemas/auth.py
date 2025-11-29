@@ -23,6 +23,7 @@ class CurrentUserResponse(BaseModel):
     is_client: bool = Field(alias="isClient")
     is_executor: bool = Field(alias="isExecutor")
     is_admin: bool = Field(alias="isAdmin")
+    is_superadmin: bool = Field(alias="isSuperadmin")
 
     model_config = ConfigDict(populate_by_name=True)
 

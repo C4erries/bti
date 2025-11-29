@@ -34,7 +34,7 @@ def get_me(user) -> CurrentUserResponse:
         user=user,
         isClient=user.client_profile is not None,
         isExecutor=user.executor_profile is not None,
-        isAdmin=user.is_admin,
+        isAdmin=user.is_admin or user.is_superadmin,
     )
 
 

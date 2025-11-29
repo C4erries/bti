@@ -12,6 +12,7 @@ class User(BaseModel):
     full_name: str = Field(alias="fullName")
     phone: str | None = None
     is_admin: bool = Field(alias="isAdmin")
+    is_superadmin: bool = Field(alias="isSuperadmin")
     is_blocked: bool = Field(default=False, alias="isBlocked")
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
@@ -23,6 +24,7 @@ class UserCreate(BaseModel):
     full_name: str = Field(alias="fullName")
     phone: str | None = None
     is_admin: bool = False
+    is_superadmin: bool = False
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -39,6 +41,7 @@ class RegisterExecutorRequest(BaseModel):
     department_code: str | None = Field(default=None, alias="departmentCode")
     experience_years: int | None = Field(default=None, alias="experienceYears")
     is_admin: bool | None = Field(default=None, alias="isAdmin")
+    is_superadmin: bool | None = Field(default=None, alias="isSuperadmin")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -47,6 +50,7 @@ class UpdateUserRequest(BaseModel):
     full_name: str | None = Field(default=None, alias="fullName")
     phone: str | None = None
     is_admin: bool | None = Field(default=None, alias="isAdmin")
+    is_superadmin: bool | None = Field(default=None, alias="isSuperadmin")
     is_blocked: bool | None = Field(default=None, alias="isBlocked")
 
     model_config = ConfigDict(populate_by_name=True)
