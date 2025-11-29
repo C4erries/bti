@@ -33,46 +33,66 @@ app.add_middleware(
     max_age=3600,
 )
 
-# create tables and seed minimal data for development
-Base.metadata.create_all(bind=engine)
-
-# Выполняем миграции БД перед инициализацией данных
+# Выполняем миграции БД ПЕРЕД созданием таблиц и инициализацией данных
 try:
     from pathlib import Path
     import sqlite3
     
     # Проверяем, используется ли SQLite
     if settings.database_url.startswith("sqlite"):
-        db_path = Path(settings.database_url.replace("sqlite:///", ""))
+        db_path_str = settings.database_url.replace("sqlite:///", "")
+        # Обрабатываем относительные и абсолютные пути
+        if not Path(db_path_str).is_absolute():
+            db_path = Path(__file__).parent.parent / db_path_str
+        else:
+            db_path = Path(db_path_str)
+        
         if db_path.exists():
             conn = sqlite3.connect(str(db_path))
             cursor = conn.cursor()
             
-            # Миграция: users.is_blocked
-            cursor.execute("PRAGMA table_info(users)")
-            user_columns = [row[1] for row in cursor.fetchall()]
-            if 'is_blocked' not in user_columns:
-                cursor.execute("ALTER TABLE users ADD COLUMN is_blocked BOOLEAN DEFAULT 0 NOT NULL")
-            
-            # Миграция: users.is_superadmin
-            if 'is_superadmin' not in user_columns:
-                cursor.execute("ALTER TABLE users ADD COLUMN is_superadmin BOOLEAN DEFAULT 0 NOT NULL")
-            
-            # Миграция: order_plan_versions.comment
-            cursor.execute("PRAGMA table_info(order_plan_versions)")
-            plan_columns = [row[1] for row in cursor.fetchall()]
-            if 'comment' not in plan_columns:
-                cursor.execute("ALTER TABLE order_plan_versions ADD COLUMN comment TEXT")
-            
-            # Миграция: order_plan_versions.created_by_id
-            if 'created_by_id' not in plan_columns:
-                cursor.execute("ALTER TABLE order_plan_versions ADD COLUMN created_by_id TEXT")
-            
-            conn.commit()
-            conn.close()
+            try:
+                # Проверяем существование таблицы users
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+                if cursor.fetchone():
+                    # Миграция: users.is_blocked
+                    cursor.execute("PRAGMA table_info(users)")
+                    user_columns = [row[1] for row in cursor.fetchall()]
+                    if 'is_blocked' not in user_columns:
+                        print("🔄 Migrating: Adding is_blocked to users table...")
+                        cursor.execute("ALTER TABLE users ADD COLUMN is_blocked BOOLEAN DEFAULT 0 NOT NULL")
+                    
+                    # Миграция: users.is_superadmin
+                    if 'is_superadmin' not in user_columns:
+                        print("🔄 Migrating: Adding is_superadmin to users table...")
+                        cursor.execute("ALTER TABLE users ADD COLUMN is_superadmin BOOLEAN DEFAULT 0 NOT NULL")
+                
+                # Проверяем существование таблицы order_plan_versions
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='order_plan_versions'")
+                if cursor.fetchone():
+                    # Миграция: order_plan_versions.comment
+                    cursor.execute("PRAGMA table_info(order_plan_versions)")
+                    plan_columns = [row[1] for row in cursor.fetchall()]
+                    if 'comment' not in plan_columns:
+                        print("🔄 Migrating: Adding comment to order_plan_versions table...")
+                        cursor.execute("ALTER TABLE order_plan_versions ADD COLUMN comment TEXT")
+                    
+                    # Миграция: order_plan_versions.created_by_id
+                    if 'created_by_id' not in plan_columns:
+                        print("🔄 Migrating: Adding created_by_id to order_plan_versions table...")
+                        cursor.execute("ALTER TABLE order_plan_versions ADD COLUMN created_by_id TEXT")
+                
+                conn.commit()
+            except sqlite3.Error as e:
+                print(f"⚠️  Migration warning: {e}")
+                conn.rollback()
+            finally:
+                conn.close()
 except Exception as e:
-    print(f"Warning: Migration error (may be expected on first run): {e}")
+    print(f"⚠️  Migration error (may be expected on first run): {e}")
 
+# create tables and seed minimal data for development
+Base.metadata.create_all(bind=engine)
 init_data()
 
 app.include_router(api_router, prefix=settings.api_v1_prefix)
