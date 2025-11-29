@@ -221,6 +221,72 @@ const SceneContent = ({
   const width = safeNumber(plan.meta?.width, 1000) / pxPerMeter;
   const height = safeNumber(plan.meta?.height, 1000) / pxPerMeter;
   const objects = plan.objects3d || [];
+  
+  // Вычисляем центр плана для центрирования сцены
+  const sceneCenter = useMemo(() => {
+    const walls = buildWallSegments(plan);
+    const zones = buildZonePolygons(plan);
+    
+    // Собираем все точки для вычисления bounding box
+    const allPoints: { x: number; z: number }[] = [];
+    
+    // Точки из стен
+    walls.forEach(wall => {
+      allPoints.push(wall.p1, wall.p2);
+    });
+    
+    // Точки из зон
+    zones.forEach(zone => {
+      allPoints.push(...zone.points);
+    });
+    
+    // Точки из 3D объектов (если они уже в метрах)
+    objects.forEach(obj => {
+      if (obj.position) {
+        allPoints.push({ x: obj.position.x, z: obj.position.z });
+      }
+    });
+    
+    // Добавляем углы плана для правильного центрирования
+    const planCenter2D = from2DTo3D(
+      safeNumber(plan.meta?.width, 0) / 2,
+      safeNumber(plan.meta?.height, 0) / 2,
+      pxPerMeter
+    );
+    allPoints.push(planCenter2D);
+    
+    // Добавляем углы плана
+    const corners = [
+      from2DTo3D(0, 0, pxPerMeter),
+      from2DTo3D(safeNumber(plan.meta?.width, 0), 0, pxPerMeter),
+      from2DTo3D(0, safeNumber(plan.meta?.height, 0), pxPerMeter),
+      from2DTo3D(safeNumber(plan.meta?.width, 0), safeNumber(plan.meta?.height, 0), pxPerMeter),
+    ];
+    allPoints.push(...corners);
+    
+    if (allPoints.length === 0) {
+      // Если нет элементов, центрируем по размерам плана
+      return { x: width / 2, z: -height / 2 };
+    }
+    
+    // Вычисляем bounding box
+    let minX = Infinity, maxX = -Infinity;
+    let minZ = Infinity, maxZ = -Infinity;
+    
+    allPoints.forEach(pt => {
+      minX = Math.min(minX, pt.x);
+      maxX = Math.max(maxX, pt.x);
+      minZ = Math.min(minZ, pt.z);
+      maxZ = Math.max(maxZ, pt.z);
+    });
+    
+    // Центр bounding box
+    return {
+      x: (minX + maxX) / 2,
+      z: (minZ + maxZ) / 2,
+    };
+  }, [plan, width, height, objects, pxPerMeter]);
+  
   const fitKey = useMemo(
     () => JSON.stringify({ w: plan.meta?.width, h: plan.meta?.height, el: (plan.elements || []).map((e) => e.id) }),
     [plan.meta?.height, plan.meta?.width, plan.elements],
@@ -250,7 +316,7 @@ const SceneContent = ({
   }, [camera, controls, fitKey]);
 
   return (
-    <group ref={groupRef}>
+    <group ref={groupRef} position={[-sceneCenter.x, 0, -sceneCenter.z]}>
       <Ground width={width} height={height} />
       <Walls plan={plan} />
       <Zones plan={plan} />
