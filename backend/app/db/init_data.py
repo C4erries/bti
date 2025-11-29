@@ -24,16 +24,17 @@ def init_directories(db: Session):
         directory_service.upsert_department(db, dept)
 
     districts = [
-        DistrictCreate(code="central", name="Central", priceCoef=1.2),
-        DistrictCreate(code="north", name="North", priceCoef=1.0),
-        DistrictCreate(code="south", name="South", priceCoef=0.9),
+        DistrictCreate(code="central", name="Центральный", priceCoef=1.2),
+        DistrictCreate(code="west", name="Западный", priceCoef=1.0),
+        DistrictCreate(code="prikub", name="Прикубанский", priceCoef=1.0),
+        DistrictCreate(code="karasun", name="Карасунский", priceCoef=1.0),
     ]
     for dist in districts:
         directory_service.upsert_district(db, dist)
 
     house_types = [
-        HouseTypeCreate(code="panel", name="Panel building", priceCoef=1.0),
-        HouseTypeCreate(code="brick", name="Brick building", priceCoef=1.1),
+        HouseTypeCreate(code="panel", name="Панельный дом", priceCoef=1.0),
+        HouseTypeCreate(code="brick", name="Кирпичный дом", priceCoef=1.1),
     ]
     for ht in house_types:
         directory_service.upsert_house_type(db, ht)
