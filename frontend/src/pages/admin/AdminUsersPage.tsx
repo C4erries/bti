@@ -16,16 +16,30 @@ const AdminUsersPage = () => {
   const [selected, setSelected] = useState<User | null>(null);
   const [edit, setEdit] = useState({ fullName: '', phone: '', isAdmin: false });
   const [message, setMessage] = useState<string | null>(null);
+  const [roleFilter, setRoleFilter] = useState<string>('');
 
   useEffect(() => {
     if (token) void loadUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, roleFilter]);
 
   const loadUsers = async () => {
     if (!token) return;
-    const data = await apiFetch<User[]>('/admin/users', {}, token);
-    setUsers(data);
+    try {
+      const queryParams: Record<string, string> = {};
+      if (roleFilter) {
+        queryParams.role = roleFilter;
+      }
+      const queryString = new URLSearchParams(queryParams).toString();
+      const url = `/admin/users${queryString ? `?${queryString}` : ''}`;
+      const data = await apiFetch<User[]>(url, {}, token);
+      setUsers(data || []);
+      setMessage(null);
+    } catch (error: any) {
+      setMessage(`Ошибка загрузки: ${error.message}`);
+      setUsers([]);
+      console.error('Failed to load users:', error);
+    }
   };
 
   const selectUser = async (id: string) => {
@@ -62,7 +76,26 @@ const AdminUsersPage = () => {
           Обновить
         </button>
       </div>
-      {message && <p className="mt-2 text-sm text-slate-700">{message}</p>}
+      <div className="mt-3">
+        <label className="text-sm text-slate-700">
+          Фильтр по роли:
+          <select
+            className={`${inputClass} mt-1`}
+            value={roleFilter}
+            onChange={(e) => setRoleFilter(e.target.value)}
+          >
+            <option value="">Все роли</option>
+            <option value="client">Клиенты</option>
+            <option value="executor">Исполнители</option>
+            <option value="admin">Администраторы</option>
+          </select>
+        </label>
+      </div>
+      {message && (
+        <p className={`mt-2 text-sm ${message.includes('Ошибка') ? 'text-red-600' : 'text-slate-700'}`}>
+          {message}
+        </p>
+      )}
       <div className="mt-3 overflow-auto rounded border">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-100 text-left">
@@ -73,17 +106,25 @@ const AdminUsersPage = () => {
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
-              <tr
-                key={u.id}
-                className="cursor-pointer hover:bg-slate-50"
-                onClick={() => void selectUser(u.id)}
-              >
-                <td className="px-3 py-2">{u.email}</td>
-                <td className="px-3 py-2">{u.fullName}</td>
-                <td className="px-3 py-2">{u.isAdmin ? 'Да' : 'Нет'}</td>
+            {users.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="px-3 py-8 text-center text-slate-500">
+                  Пользователи не найдены
+                </td>
               </tr>
-            ))}
+            ) : (
+              users.map((u) => (
+                <tr
+                  key={u.id}
+                  className="cursor-pointer hover:bg-slate-50"
+                  onClick={() => void selectUser(u.id)}
+                >
+                  <td className="px-3 py-2">{u.email}</td>
+                  <td className="px-3 py-2">{u.fullName}</td>
+                  <td className="px-3 py-2">{u.isAdmin ? 'Да' : 'Нет'}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
