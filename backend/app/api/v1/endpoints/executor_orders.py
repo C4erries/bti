@@ -195,7 +195,27 @@ def list_status_history(
     
     try:
         history = order_service.get_status_history(db, order_id)
-        return [OrderStatusHistoryItem.model_validate(h) for h in history]
+        result = []
+        for h in history:
+            try:
+                history_item = OrderStatusHistoryItem.model_validate(h)
+                # Если есть changed_by, добавляем информацию о пользователе
+                if h.changed_by:
+                    from app.schemas.user import User
+                    history_item.changed_by = User.model_validate(h.changed_by).model_dump()
+                result.append(history_item)
+            except Exception as e:
+                print(f"Error validating history item {h.id}: {e}")
+                # Создаем упрощенную версию
+                result.append(OrderStatusHistoryItem(
+                    id=h.id,
+                    orderId=h.order_id,
+                    status=h.status.value if hasattr(h.status, 'value') else str(h.status),
+                    changedByUserId=h.changed_by_id,
+                    changedAt=h.created_at,
+                    comment=h.comment
+                ))
+        return result
     except Exception as e:
         import traceback
         print(f"Error in list_status_history: {e}")
