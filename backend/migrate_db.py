@@ -37,6 +37,21 @@ def migrate_database():
             cursor.execute("ALTER TABLE order_plan_versions ADD COLUMN created_by_id TEXT")
             migrations_applied += 1
         
+        # Миграция 2: users.is_blocked
+        cursor.execute("PRAGMA table_info(users)")
+        user_columns = [row[1] for row in cursor.fetchall()]
+        
+        if 'is_blocked' not in user_columns:
+            print("  ➕ Добавление колонки 'is_blocked' в users...")
+            cursor.execute("ALTER TABLE users ADD COLUMN is_blocked BOOLEAN DEFAULT 0 NOT NULL")
+            migrations_applied += 1
+        
+        # Миграция 3: users.is_superadmin
+        if 'is_superadmin' not in user_columns:
+            print("  ➕ Добавление колонки 'is_superadmin' в users...")
+            cursor.execute("ALTER TABLE users ADD COLUMN is_superadmin BOOLEAN DEFAULT 0 NOT NULL")
+            migrations_applied += 1
+        
         conn.commit()
         
         if migrations_applied > 0:
