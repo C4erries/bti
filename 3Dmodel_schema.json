@@ -109,6 +109,10 @@
                 "type": "boolean",
                 "default": false
               },
+              "style": {
+                "$ref": "#/definitions/ElementStyle",
+                "description": "Стиль отображения для элементов пола (zone) и стен (wall)"
+              },
               "geometry": {
                 "oneOf": [
                   { "$ref": "#/definitions/WallGeometry" },
@@ -141,6 +145,22 @@
     }
   },
   "definitions": {
+    "ElementStyle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "type": "string",
+          "description": "Цвет элемента в формате HEX (например, #RRGGBB или #RRGGBBAA)",
+          "pattern": "^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
+        },
+        "textureUrl": {
+          "type": ["string", "null"],
+          "description": "Ссылка на текстуру для отрисовки элемента (стена / пол)",
+          "format": "uri"
+        }
+      }
+    },
     "WallGeometry": {
       "title": "WallGeometry",
       "type": "object",
