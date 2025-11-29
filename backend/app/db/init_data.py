@@ -6,7 +6,6 @@ from app.schemas.directory import (
     DepartmentCreate,
     DistrictCreate,
     HouseTypeCreate,
-    ServiceCreate,
 )
 from app.schemas.orders import CreateOrderRequest, SavePlanChangesRequest
 from app.schemas.user import ExecutorCreateRequest, UserCreate
@@ -38,25 +37,6 @@ def init_directories(db: Session):
     ]
     for ht in house_types:
         directory_service.upsert_house_type(db, ht)
-
-    services = [
-        ServiceCreate(
-            code=1,
-            title="BTI plan",
-            department_code="BTI",
-            base_price=5000,
-            description="Measurements and BTI documentation",
-        ),
-        ServiceCreate(
-            code=2,
-            title="Remodel approval",
-            department_code="CAD",
-            base_price=12000,
-            description="Support for approval of remodelling",
-        ),
-    ]
-    for svc in services:
-        directory_service.upsert_service(db, svc)
 
 
 def init_users(db: Session):
@@ -122,7 +102,6 @@ def init_orders(db: Session):
         db,
         client=client,
         data=CreateOrderRequest(
-            service_code=1,
             title="BTI plan for remodel",
             description="Need measurements and technical plan",
             address="Sample address 1",

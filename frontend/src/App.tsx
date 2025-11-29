@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Link, Navigate, Outlet } from 'react-rout
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import AuthPage from './pages/AuthPage';
-import ServiceCatalogPage from './pages/client/ServiceCatalogPage';
 import CreateOrderPage from './pages/client/CreateOrderPage';
 import ClientOrdersPage from './pages/client/OrdersPage';
 import ClientOrderDetailsPage from './pages/client/OrderDetailsPage';
@@ -90,7 +89,6 @@ const App = () => {
             }
           >
             <Route index element={<ClientChatLandingPage />} />
-            <Route path="services" element={<ServiceCatalogPage />} />
             <Route path="orders" element={<ClientOrdersPage />} />
             <Route path="orders/new" element={<CreateOrderPage />} />
             <Route path="orders/:orderId" element={<ClientOrderDetailsPage />} />

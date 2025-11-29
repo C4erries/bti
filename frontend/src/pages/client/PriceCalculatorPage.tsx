@@ -15,7 +15,6 @@ import type {
   HouseType,
   PriceCalculatorRequest,
   PriceEstimateResponse,
-  Service,
 } from '../../types';
 
 interface CalculatorState {
@@ -31,12 +30,10 @@ interface CalculatorState {
 
 const PriceCalculatorPage = () => {
   const { token } = useAuth();
-  const [services, setServices] = useState<Service[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [houseTypes, setHouseTypes] = useState<HouseType[]>([]);
 
   const [form, setForm] = useState({
-    serviceCode: '',
     districtCode: '',
     houseTypeCode: '',
   });
@@ -57,13 +54,8 @@ const PriceCalculatorPage = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void Promise.all([loadServices(), loadDistricts(), loadHouseTypes()]);
+    void Promise.all([loadDistricts(), loadHouseTypes()]);
   }, []);
-
-  const loadServices = async () => {
-    const data = await apiFetch<Service[]>('/services');
-    setServices(data);
-  };
 
   const loadDistricts = async () => {
     const data = await apiFetch<District[]>('/districts');
@@ -95,7 +87,6 @@ const PriceCalculatorPage = () => {
       if (calculator.notes) calculatorInput.notes = calculator.notes;
 
       const payload: PriceCalculatorRequest = {
-        serviceCode: Number(form.serviceCode),
         districtCode: form.districtCode || null,
         houseTypeCode: form.houseTypeCode || null,
         calculatorInput,
@@ -108,7 +99,7 @@ const PriceCalculatorPage = () => {
       );
       setEstimate(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка расчёта стоимости');
+      setError(err instanceof Error ? err.message : 'Ошибка расчёта');
     } finally {
       setLoading(false);
     }
@@ -119,9 +110,6 @@ const PriceCalculatorPage = () => {
       <div className="flex items-center justify-between">
         <h3 className={sectionTitleClass}>Калькулятор стоимости</h3>
         <div className="flex gap-2">
-          <button className={subtleButtonClass} onClick={() => void loadServices()}>
-            Обновить услуги
-          </button>
           <button className={subtleButtonClass} onClick={() => void loadDistricts()}>
             Обновить округа
           </button>
@@ -132,22 +120,7 @@ const PriceCalculatorPage = () => {
       </div>
 
       <div className="mt-4 space-y-4">
-        <div className="grid gap-3 lg:grid-cols-3">
-          <label className="text-sm font-medium text-slate-700">
-            Услуга
-            <select
-              className={`${inputClass} mt-1`}
-              value={form.serviceCode}
-              onChange={(e) => setForm((p) => ({ ...p, serviceCode: e.target.value }))}
-            >
-              <option value="">Выберите услугу</option>
-              {services.map((s) => (
-                <option key={s.code} value={s.code}>
-                  {s.title} ({s.code})
-                </option>
-              ))}
-            </select>
-          </label>
+        <div className="grid gap-3 lg:grid-cols-2">
           <label className="text-sm font-medium text-slate-700">
             Округ
             <select
@@ -155,7 +128,7 @@ const PriceCalculatorPage = () => {
               value={form.districtCode}
               onChange={(e) => setForm((p) => ({ ...p, districtCode: e.target.value }))}
             >
-              <option value="">Не выбран</option>
+              <option value="">Не выбрано</option>
               {districts.map((d) => (
                 <option key={d.code} value={d.code}>
                   {d.name} ({d.code})
@@ -170,7 +143,7 @@ const PriceCalculatorPage = () => {
               value={form.houseTypeCode}
               onChange={(e) => setForm((p) => ({ ...p, houseTypeCode: e.target.value }))}
             >
-              <option value="">Не выбран</option>
+              <option value="">Не выбрано</option>
               {houseTypes.map((h) => (
                 <option key={h.code} value={h.code}>
                   {h.name} ({h.code})
@@ -197,7 +170,7 @@ const PriceCalculatorPage = () => {
                 checked={calculator.walls}
                 onChange={(e) => setCalculator((p) => ({ ...p, walls: e.target.checked }))}
               />
-              Работы по стенам
+              Стены (перенос/монтаж)
             </label>
             <label className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
               <input
@@ -205,7 +178,7 @@ const PriceCalculatorPage = () => {
                 checked={calculator.wetZone}
                 onChange={(e) => setCalculator((p) => ({ ...p, wetZone: e.target.checked }))}
               />
-              Мокрые зоны
+              Влажные зоны
             </label>
             <label className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
               <input
@@ -213,7 +186,7 @@ const PriceCalculatorPage = () => {
                 checked={calculator.doorways}
                 onChange={(e) => setCalculator((p) => ({ ...p, doorways: e.target.checked }))}
               />
-              Проёмы/двери
+              Проёмы
             </label>
             <label className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
               <input
@@ -221,7 +194,7 @@ const PriceCalculatorPage = () => {
                 checked={calculator.hasBasement}
                 onChange={(e) => setCalculator((p) => ({ ...p, hasBasement: e.target.checked }))}
               />
-              Есть подвал
+              Есть подвал/цоколь
             </label>
             <label className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
               <input
@@ -240,7 +213,7 @@ const PriceCalculatorPage = () => {
               Срочно
             </label>
             <label className="text-sm font-medium text-slate-700 lg:col-span-3">
-              Доп. сведения
+              Заметки
               <textarea
                 className={`${textareaClass} mt-1`}
                 rows={2}
@@ -252,12 +225,8 @@ const PriceCalculatorPage = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            className={buttonClass}
-            onClick={() => void handleCalculate()}
-            disabled={!form.serviceCode || loading}
-          >
-            {loading ? 'Считаем...' : 'Рассчитать стоимость'}
+          <button className={buttonClass} onClick={() => void handleCalculate()} disabled={loading}>
+            {loading ? 'Рассчитываем...' : 'Рассчитать стоимость'}
           </button>
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
@@ -269,7 +238,7 @@ const PriceCalculatorPage = () => {
             </p>
             <p className="mt-1 text-xs text-slate-600">
               База: {estimate.breakdown.baseComponent.toLocaleString()} ₽, работы:{' '}
-              {estimate.breakdown.worksComponent.toLocaleString()} ₽, коэффициенты ×
+              {estimate.breakdown.worksComponent.toLocaleString()} ₽, коэф. особенностей{' '}
               {estimate.breakdown.featuresCoef}
             </p>
             <pre className="mt-2 whitespace-pre-wrap text-xs">

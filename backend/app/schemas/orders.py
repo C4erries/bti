@@ -145,7 +145,6 @@ class OrderStatusHistoryItem(BaseModel):
 class Order(BaseModel):
     id: uuid.UUID
     client_id: uuid.UUID = Field(alias="clientId")
-    service_code: int = Field(alias="serviceCode")
     status: OrderStatus
     title: str
     description: str | None = None
@@ -168,7 +167,6 @@ class Order(BaseModel):
 
 
 class CreateOrderRequest(BaseModel):
-    service_code: int = Field(alias="serviceCode")
     title: str
     description: str | None = None
     address: str | None = None
@@ -207,8 +205,6 @@ class AdminOrderListItem(BaseModel):
     status: str
     title: str
     description: str | None = None
-    service_code: int = Field(alias="serviceCode")
-    service_title: str | None = Field(default=None, alias="serviceTitle")
     client_id: uuid.UUID = Field(alias="clientId")
     client_name: str | None = Field(default=None, alias="clientName")
     executor_id: uuid.UUID | None = Field(default=None, alias="executorId")
@@ -268,7 +264,7 @@ class AdminAddCommentRequest(BaseModel):
 class ExecutorOrderListItem(BaseModel):
     id: uuid.UUID
     status: str
-    service_title: str = Field(alias="serviceTitle")
+    title: str
     total_price: float | None = Field(default=None, alias="totalPrice")
     created_at: datetime = Field(alias="createdAt")
     complexity: str | None = None

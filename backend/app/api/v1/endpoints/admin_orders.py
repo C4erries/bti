@@ -89,17 +89,6 @@ def list_orders(
                     pass
                 
                 # Название услуги
-                service_title = None
-                try:
-                    if order.service_code:
-                        from app.models.directory import Service
-                        service = db.get(Service, order.service_code)
-                        if service:
-                            service_title = service.name
-                except Exception:
-                    pass
-                
-                # Обработка статуса
                 order_status = str(order.status)
                 if hasattr(order.status, 'value'):
                     order_status = order.status.value
@@ -109,8 +98,6 @@ def list_orders(
                     status=order_status,
                     title=order.title or "",
                     description=order.description or None,
-                    serviceCode=order.service_code,
-                    serviceTitle=service_title,
                     clientId=order.client_id,
                     clientName=client.full_name if client else None,
                     executorId=executor.id if executor else None,
@@ -138,8 +125,6 @@ def list_orders(
                         status=order_status,
                         title=order.title or "",
                         description=order.description or None,
-                        serviceCode=order.service_code,
-                        serviceTitle=None,
                         clientId=order.client_id,
                         clientName=None,
                         executorId=None,

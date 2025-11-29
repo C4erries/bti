@@ -17,7 +17,6 @@ from app.models.order import (
     OrderStatusHistory,
 )
 from app.models.user import User
-from app.models.directory import Service
 from app.schemas.orders import CreateOrderRequest, UpdateOrderRequest, SavePlanChangesRequest
 from app.services import user_service
 from app.services.price_calculator import calculate_order_price
@@ -29,7 +28,6 @@ def create_order(db: Session, client: User, data: CreateOrderRequest) -> Order:
     calculator_data = data.calculator_input or {}
     order = Order(
         client_id=client.id,
-        service_code=data.service_code,
         district_code=data.district_code,
         house_type_code=data.house_type_code,
         title=data.title,
@@ -38,7 +36,6 @@ def create_order(db: Session, client: User, data: CreateOrderRequest) -> Order:
         status=OrderStatus.SUBMITTED,
         calculator_input=calculator_data,
     )
-    set_order_department_from_service(db, order)
     estimated, _ = calculate_order_price(db, order, calculator_data)
     order.estimated_price = estimated
     db.add(order)
@@ -362,18 +359,6 @@ def get_executor_orders(
     if department_code:
         query = query.where(Order.current_department_code == department_code)
     return list(db.scalars(query))
-
-
-def set_order_department_from_service(db: Session, order: Order) -> None:
-    service = db.get(Service, order.service_code) if order.service_code else None
-    if not service or not service.department_code:
-        order.department_code = None
-        if order.current_department_code is None:
-            order.current_department_code = None
-        return
-    order.department_code = service.department_code
-    if order.current_department_code is None:
-        order.current_department_code = service.department_code
 
 
 def add_file(db: Session, order: Order, file: UploadFile, uploaded_by: User | None = None) -> OrderFile:

@@ -9,7 +9,7 @@ import {
   textareaClass,
 } from '../../components/ui';
 import { useAuth } from '../../context/AuthContext';
-import type { CalculatorInput, District, HouseType, Order, Service } from '../../types';
+import type { CalculatorInput, District, HouseType, Order } from '../../types';
 
 type CalculatorFormState = {
   area: string;
@@ -24,14 +24,12 @@ type CalculatorFormState = {
 
 const CreateOrderPage = () => {
   const { token } = useAuth();
-  const [services, setServices] = useState<Service[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [houseTypes, setHouseTypes] = useState<HouseType[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [created, setCreated] = useState<Order | null>(null);
 
   const [form, setForm] = useState({
-    serviceCode: '',
     title: '',
     description: '',
     address: '',
@@ -51,13 +49,9 @@ const CreateOrderPage = () => {
   });
 
   useEffect(() => {
-    void Promise.all([loadServices(), loadDistricts(), loadHouseTypes()]);
+    void Promise.all([loadDistricts(), loadHouseTypes()]);
   }, []);
 
-  const loadServices = async () => {
-    const data = await apiFetch<Service[]>('/services');
-    setServices(data);
-  };
   const loadDistricts = async () => {
     const data = await apiFetch<District[]>('/districts');
     setDistricts(data);
@@ -90,7 +84,6 @@ const CreateOrderPage = () => {
       if (calculator.notes) calculatorInput.notes = calculator.notes;
 
       const payload = {
-        serviceCode: Number(form.serviceCode),
         title: form.title,
         description: form.description || null,
         address: form.address || null,
@@ -105,48 +98,29 @@ const CreateOrderPage = () => {
         token,
       );
       setCreated(createdOrder);
-      setMessage(`Заказ создан: ${createdOrder.id}`);
+      setMessage(`Создан заказ: ${createdOrder.id}`);
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Ошибка создания заказа');
+      setMessage(err instanceof Error ? err.message : 'Ошибка при создании заказа');
     }
   };
 
   return (
     <div className={cardClass}>
       <div className="flex items-center justify-between">
-        <h3 className={sectionTitleClass}>Создать заказ</h3>
+        <h3 className={sectionTitleClass}>Создание заказа</h3>
         <div className="flex gap-2">
-          <button className={subtleButtonClass} onClick={() => void loadServices()}>
-            Обновить услуги
-          </button>
           <button className={subtleButtonClass} onClick={() => void loadDistricts()}>
-            Округа
+            Обновить округа
           </button>
           <button className={subtleButtonClass} onClick={() => void loadHouseTypes()}>
-            Типы домов
+            Обновить типы домов
           </button>
         </div>
       </div>
       <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-1">
           <label className="text-sm font-medium text-slate-700">
-            Услуга
-            <select
-              className={`${inputClass} mt-1`}
-              value={form.serviceCode}
-              onChange={(e) => setForm((p) => ({ ...p, serviceCode: e.target.value }))}
-              required
-            >
-              <option value="">Выберите услугу</option>
-              {services.map((s) => (
-                <option key={s.code} value={s.code}>
-                  {s.title} ({s.code})
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm font-medium text-slate-700">
-            Заголовок
+            Название заказа
             <input
               className={`${inputClass} mt-1`}
               value={form.title}
@@ -209,7 +183,7 @@ const CreateOrderPage = () => {
           <p className="text-sm font-semibold text-slate-800">Расчёт стоимости</p>
           <div className="mt-2 grid gap-3 lg:grid-cols-3">
             <label className="text-sm font-medium text-slate-700">
-              Площадь (м²)
+              Площадь (кв.м)
               <input
                 className={`${inputClass} mt-1`}
                 value={calculator.area}
@@ -246,7 +220,7 @@ const CreateOrderPage = () => {
                 checked={calculator.hasBasement}
                 onChange={(e) => setCalculator((p) => ({ ...p, hasBasement: e.target.checked }))}
               />
-              Есть подвал
+              Есть подвал/цоколь
             </label>
             <label className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
               <input
@@ -265,7 +239,7 @@ const CreateOrderPage = () => {
               Срочно
             </label>
             <label className="text-sm font-medium text-slate-700 lg:col-span-3">
-              Особенности
+              Доп. комментарий / особенности
               <textarea
                 className={`${textareaClass} mt-1`}
                 rows={2}

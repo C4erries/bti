@@ -1,6 +1,6 @@
 from app.db.base_class import Base
 from app.models.user import User, ClientProfile, ExecutorProfile
-from app.models.directory import Department, Service, District, HouseType
+from app.models.directory import Department, District, HouseType
 from app.models.order import (
     Order,
     OrderStatusHistory,
@@ -20,7 +20,6 @@ __all__ = [
     "ClientProfile",
     "ExecutorProfile",
     "Department",
-    "Service",
     "District",
     "HouseType",
     "Order",

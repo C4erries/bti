@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Float, Integer, String, Text, ForeignKey, JSON
+from sqlalchemy import Float, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
@@ -14,25 +14,6 @@ class Department(Base):
     executors: Mapped[list["ExecutorProfile"]] = relationship(
         "ExecutorProfile", back_populates="department"
     )
-    services: Mapped[list["Service"]] = relationship(
-        "Service", back_populates="department"
-    )
-
-
-class Service(Base):
-    __tablename__ = "services"
-
-    code: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text)
-    department_code: Mapped[str | None] = mapped_column(String(50), ForeignKey("departments.code"))
-    base_price: Mapped[float | None] = mapped_column(Float)
-    base_duration_days: Mapped[int | None] = mapped_column(Integer)
-    required_docs: Mapped[dict | None] = mapped_column(JSON)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
-
-    department: Mapped["Department"] = relationship("Department", back_populates="services")
-    orders: Mapped[list["Order"]] = relationship("Order", back_populates="service")
 
 
 class District(Base):

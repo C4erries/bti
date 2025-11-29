@@ -20,7 +20,7 @@ const ClientOrdersPage = () => {
       setOrders(data);
       setMessage(null);
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Ошибка загрузки заказов');
+      setMessage(err instanceof Error ? err.message : 'Не удалось загрузить заказы');
     }
   };
 
@@ -38,11 +38,11 @@ const ClientOrdersPage = () => {
           <thead className="bg-slate-100 text-left">
             <tr>
               <th className="px-3 py-2">ID</th>
-              <th className="px-3 py-2">Услуга</th>
+              <th className="px-3 py-2">Название</th>
               <th className="px-3 py-2">Статус</th>
               <th className="px-3 py-2">Адрес</th>
               <th className="px-3 py-2">Создан</th>
-              <th className="px-3 py-2">Цена</th>
+              <th className="px-3 py-2">Стоимость</th>
             </tr>
           </thead>
           <tbody>
@@ -53,7 +53,7 @@ const ClientOrdersPage = () => {
                     {o.id.slice(0, 8)}…
                   </Link>
                 </td>
-                <td className="px-3 py-2">{o.serviceTitle || o.serviceCode}</td>
+                <td className="px-3 py-2">{o.title}</td>
                 <td className="px-3 py-2">{o.status}</td>
                 <td className="px-3 py-2">{o.address || '—'}</td>
                 <td className="px-3 py-2">{new Date(o.createdAt).toLocaleString()}</td>
@@ -65,7 +65,7 @@ const ClientOrdersPage = () => {
       </div>
       <div className="mt-3 text-sm">
         <Link className="text-blue-600 underline" to="/client/orders/new">
-          Создать новый заказ →
+          Создать новый заказ
         </Link>
       </div>
     </div>

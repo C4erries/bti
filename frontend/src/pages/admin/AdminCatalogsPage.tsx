@@ -8,17 +8,14 @@ import {
   sectionTitleClass,
   subtleButtonClass,
 } from '../../components/ui';
-import type { District, HouseType, Service, Department } from '../../types';
+import type { District, HouseType, Department } from '../../types';
 
 const AdminCatalogsPage = () => {
   const { token } = useAuth();
-  const [services, setServices] = useState<Service[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [houseTypes, setHouseTypes] = useState<HouseType[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [form, setForm] = useState({
-    serviceCode: '',
-    serviceTitle: '',
     districtCode: '',
     districtName: '',
     houseTypeCode: '',
@@ -33,15 +30,12 @@ const AdminCatalogsPage = () => {
   }, []);
 
   const refreshLists = async () => {
-    const [srv, dst, house] = await Promise.allSettled([
-      apiFetch<Service[]>('/services'),
+    const [dst, house] = await Promise.allSettled([
       apiFetch<District[]>('/districts'),
       apiFetch<HouseType[]>('/house-types'),
     ]);
-    if (srv.status === 'fulfilled') setServices(srv.value);
     if (dst.status === 'fulfilled') setDistricts(dst.value);
     if (house.status === 'fulfilled') setHouseTypes(house.value);
-    // departments endpoint может отсутствовать, пробуем мягко
     try {
       const deps = await apiFetch<Department[]>('/admin/departments', {}, token ?? undefined);
       setDepartments(deps);
@@ -57,40 +51,44 @@ const AdminCatalogsPage = () => {
       return;
     }
     const calls: Promise<unknown>[] = [];
-    if (form.serviceCode && form.serviceTitle) {
-      calls.push(
-        apiFetch('/admin/services', {
-          method: 'POST',
-          data: { code: Number(form.serviceCode), title: form.serviceTitle },
-        }, token),
-      );
-    }
     if (form.districtCode && form.districtName) {
       calls.push(
-        apiFetch('/admin/districts', {
-          method: 'POST',
-          data: { code: form.districtCode, name: form.districtName },
-        }, token),
+        apiFetch(
+          '/admin/districts',
+          {
+            method: 'POST',
+            data: { code: form.districtCode, name: form.districtName },
+          },
+          token,
+        ),
       );
     }
     if (form.houseTypeCode && form.houseTypeName) {
       calls.push(
-        apiFetch('/admin/house-types', {
-          method: 'POST',
-          data: { code: form.houseTypeCode, name: form.houseTypeName },
-        }, token),
+        apiFetch(
+          '/admin/house-types',
+          {
+            method: 'POST',
+            data: { code: form.houseTypeCode, name: form.houseTypeName },
+          },
+          token,
+        ),
       );
     }
     if (form.departmentCode && form.departmentName) {
       calls.push(
-        apiFetch('/admin/departments', {
-          method: 'POST',
-          data: { code: form.departmentCode, name: form.departmentName },
-        }, token),
+        apiFetch(
+          '/admin/departments',
+          {
+            method: 'POST',
+            data: { code: form.departmentCode, name: form.departmentName },
+          },
+          token,
+        ),
       );
     }
     await Promise.allSettled(calls);
-    setMessage('Запросы отправлены (проверьте логи бекенда)');
+    setMessage('Изменения применены (для существующей БД может потребоваться обновление записей)');
     await refreshLists();
   };
 
@@ -106,22 +104,7 @@ const AdminCatalogsPage = () => {
         {message && <p className="mt-2 text-sm text-slate-700">{message}</p>}
         <form className="mt-3 grid gap-3 lg:grid-cols-3" onSubmit={submit}>
           <label className="text-sm text-slate-700">
-            Service code/title
-            <input
-              className={`${inputClass} mt-1`}
-              value={form.serviceCode}
-              onChange={(e) => setForm((p) => ({ ...p, serviceCode: e.target.value }))}
-              placeholder="code"
-            />
-            <input
-              className={`${inputClass} mt-2`}
-              value={form.serviceTitle}
-              onChange={(e) => setForm((p) => ({ ...p, serviceTitle: e.target.value }))}
-              placeholder="title"
-            />
-          </label>
-          <label className="text-sm text-slate-700">
-            District code/name
+            Округ (код/название)
             <input
               className={`${inputClass} mt-1`}
               value={form.districtCode}
@@ -136,7 +119,7 @@ const AdminCatalogsPage = () => {
             />
           </label>
           <label className="text-sm text-slate-700">
-            House type code/name
+            Тип дома (код/название)
             <input
               className={`${inputClass} mt-1`}
               value={form.houseTypeCode}
@@ -151,7 +134,7 @@ const AdminCatalogsPage = () => {
             />
           </label>
           <label className="text-sm text-slate-700">
-            Department code/name
+            Отдел (код/название)
             <input
               className={`${inputClass} mt-1`}
               value={form.departmentCode}
@@ -166,21 +149,11 @@ const AdminCatalogsPage = () => {
             />
           </label>
           <button type="submit" className={buttonClass}>
-            Отправить
+            Сохранить
           </button>
         </form>
       </div>
 
-      <div className={cardClass}>
-        <h4 className={sectionTitleClass}>Услуги</h4>
-        <div className="mt-2 flex flex-wrap gap-2 text-xs">
-          {services.map((s) => (
-            <span key={s.code} className="rounded bg-slate-100 px-2 py-1">
-              {s.title} ({s.code})
-            </span>
-          ))}
-        </div>
-      </div>
       <div className={cardClass}>
         <h4 className={sectionTitleClass}>Округа</h4>
         <div className="mt-2 flex flex-wrap gap-2 text-xs">

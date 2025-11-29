@@ -5,26 +5,10 @@ from app.api.deps import get_db_session
 from app.schemas.directory import (
     DistrictRead,
     HouseTypeRead,
-    ServiceRead,
 )
 from app.services import directory_service
 
 router = APIRouter(tags=["Public"])
-
-
-@router.get("/services", response_model=list[ServiceRead])
-def list_services(db: Session = Depends(get_db_session)):
-    services = directory_service.list_services(db)
-    return [ServiceRead.model_validate(s) for s in services]
-
-
-@router.get("/services/{serviceId}", response_model=ServiceRead)
-def get_service(serviceId: int, db: Session = Depends(get_db_session)):
-    service = directory_service.get_service(db, serviceId)
-    if not service:
-        raise HTTPException(status_code=404, detail="Service not found")
-    return ServiceRead.model_validate(service)
-
 
 @router.get("/districts", response_model=list[DistrictRead])
 def list_districts(db: Session = Depends(get_db_session)):

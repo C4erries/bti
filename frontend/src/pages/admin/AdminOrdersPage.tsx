@@ -14,7 +14,6 @@ import type {
   AdminOrderDetails,
   Department,
   User,
-  OrderStatusHistoryItem,
   OrderPlanVersion,
   OrderFile,
 } from '../../types';
@@ -50,7 +49,6 @@ const AdminOrdersPage = () => {
     type: 'revision' | 'approve' | 'reject' | 'comment' | null;
     comment: string;
   }>({ type: null, comment: '' });
-  const [selectedPlanVersion, setSelectedPlanVersion] = useState<OrderPlanVersion | null>(null);
   const [files, setFiles] = useState<OrderFile[]>([]);
   const [fileToUpload, setFileToUpload] = useState<File | null>(null);
   const [activeDetailTab, setActiveDetailTab] = useState<'info' | 'files' | 'plans' | 'history'>('info');
@@ -156,7 +154,7 @@ const AdminOrdersPage = () => {
       const formData = new FormData();
       formData.append('upload', fileToUpload);
       await apiFetch<OrderFile>(
-        `/admin/orders/${selected.order.id}/files`,
+        `/admin/orders/${selected!.order.id}/files`,
         {
           method: 'POST',
           data: formData,
@@ -166,7 +164,7 @@ const AdminOrdersPage = () => {
       );
       setMessage('Файл загружен');
       setFileToUpload(null);
-      await loadFiles(selected.order.id);
+      await loadFiles(selected!.order.id);
     } catch (error: any) {
       setMessage(`Ошибка загрузки файла: ${error.message}`);
     }
@@ -193,7 +191,7 @@ const AdminOrdersPage = () => {
     }
 
     try {
-      const endpoint = `/admin/orders/${selected.order.id}/${action === 'revision' ? 'send-for-revision' : action === 'comment' ? 'comment' : action}`;
+      const endpoint = `/admin/orders/${selected!.order.id}/${action === 'revision' ? 'send-for-revision' : action === 'comment' ? 'comment' : action}`;
       await apiFetch(
         endpoint,
         {
@@ -206,7 +204,7 @@ const AdminOrdersPage = () => {
       );
       setMessage(`Действие "${action}" выполнено`);
       setActionModal({ type: null, comment: '' });
-      await loadOrder(selected.order.id);
+      await loadOrder(selected!.order.id);
       await loadOrders();
     } catch (error: any) {
       setMessage(`Ошибка: ${error.message}`);
@@ -332,15 +330,15 @@ const AdminOrdersPage = () => {
             <thead className="bg-slate-100 text-left">
               <tr>
                 <th className="px-4 py-3 font-semibold">ID</th>
-                <th className="px-4 py-3 font-semibold">Клиент</th>
-                <th className="px-4 py-3 font-semibold">Исполнитель</th>
-                <th className="px-4 py-3 font-semibold">Тип работы</th>
-                <th className="px-4 py-3 font-semibold">Описание</th>
-                <th className="px-4 py-3 font-semibold text-center">Файлы</th>
-                <th className="px-4 py-3 font-semibold">Дата создания</th>
-                <th className="px-4 py-3 font-semibold">Срок выполнения</th>
-                <th className="px-4 py-3 font-semibold">Комментарий</th>
-                <th className="px-4 py-3 font-semibold">Статус</th>
+                <th className="px-4 py-3 font-semibold">??????</th>
+                <th className="px-4 py-3 font-semibold">???????????</th>
+                <th className="px-4 py-3 font-semibold">????????</th>
+                <th className="px-4 py-3 font-semibold">????????</th>
+                <th className="px-4 py-3 font-semibold text-center">?????</th>
+                <th className="px-4 py-3 font-semibold">???? ????????</th>
+                <th className="px-4 py-3 font-semibold">???? ??????</th>
+                <th className="px-4 py-3 font-semibold">???????????</th>
+                <th className="px-4 py-3 font-semibold">??????</th>
               </tr>
             </thead>
             <tbody>
@@ -361,8 +359,8 @@ const AdminOrdersPage = () => {
                     <td className="px-4 py-3">{o.clientName || '—'}</td>
                     <td className="px-4 py-3">{o.executorName || '—'}</td>
                     <td className="px-4 py-3">
-                      <span className="rounded bg-blue-100 px-2 py-1 text-xs">
-                        {o.serviceTitle || o.serviceCode}
+                  <span className="rounded bg-blue-100 px-2 py-1 text-xs">
+                    {o.title}
                       </span>
                     </td>
                     <td className="px-4 py-3 max-w-xs truncate">{o.description || '—'}</td>
@@ -588,9 +586,6 @@ const AdminOrdersPage = () => {
                       >
                         <div>
                           <span className="font-medium text-sm">{f.filename}</span>
-                          {f.uploadedBy && (
-                            <p className="text-xs text-slate-500">Загружен: {f.uploadedBy}</p>
-                          )}
                         </div>
                         <a
                           className="text-blue-600 hover:text-blue-800 text-sm"
@@ -618,7 +613,6 @@ const AdminOrdersPage = () => {
                       <div
                         key={version.id}
                         className="rounded border border-slate-200 p-3 cursor-pointer hover:bg-slate-50"
-                        onClick={() => setSelectedPlanVersion(version)}
                       >
                         <div className="flex items-center justify-between">
                           <div>

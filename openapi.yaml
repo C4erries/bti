@@ -69,39 +69,6 @@ paths:
                 $ref: '#/components/schemas/CurrentUserResponse'
 
   ####################################################
-  # PUBLIC: services, districts, houseTypes
-  ####################################################
-  /services:
-    get:
-      tags: [Public]
-      summary: Каталог услуг
-      responses:
-        '200':
-          description: Список услуг
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Service'
-  /services/{serviceId}:
-    get:
-      tags: [Public]
-      summary: Детали услуги
-      parameters:
-        - in: path
-          name: serviceId
-          required: true
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: Услуга
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Service'
-
   /districts:
     get:
       tags: [Public]
@@ -1031,36 +998,9 @@ components:
         isAdmin:
           type: boolean
 
-    Service:
-      type: object
-      required: [code, title]
-      properties:
-        code:
-          type: integer
-        title:
-          type: string
-        description:
-          type: string
-          nullable: true
-        departmentCode:
-          type: string
-          nullable: true
-        basePrice:
-          type: number
-          nullable: true
-        baseDurationDays:
-          type: integer
-          nullable: true
-        requiredDocs:
-          type: object
-          additionalProperties: true
-          nullable: true
-        isActive:
-          type: boolean
-
     Order:
       type: object
-      required: [id, clientId, serviceCode, status, title, createdAt]
+      required: [id, clientId, status, title, createdAt]
       properties:
         id:
           type: string
@@ -1068,8 +1008,6 @@ components:
         clientId:
           type: string
           format: uuid
-        serviceCode:
-          type: integer
         status:
           type: string
           enum:
@@ -1137,10 +1075,8 @@ components:
 
     CreateOrderRequest:
       type: object
-      required: [serviceCode, title]
+      required: [title]
       properties:
-        serviceCode:
-          type: integer
         title:
           type: string
         description:
@@ -1268,12 +1204,6 @@ components:
         chatId:
           type: string
           format: uuid
-        serviceCode:
-          type: integer
-          nullable: true
-        serviceTitle:
-          type: string
-          nullable: true
         orderId:
           type: string
           format: uuid
@@ -1290,10 +1220,8 @@ components:
 
     CreateChatRequest:
       type: object
-      required: [serviceCode]
+      required: []
       properties:
-        serviceCode:
-          type: integer
         title:
           type: string
           nullable: true
@@ -1424,7 +1352,7 @@ components:
       description: >
         Упрощённое представление заказа для таблицы в кабинете исполнителя.
         Соответствует колонкам: ID заказа, статус, услуга, стоимость, дата создания.
-      required: [id, status, serviceTitle, createdAt]
+      required: [id, status, title, createdAt]
       properties:
         id:
           type: string
@@ -1433,9 +1361,9 @@ components:
         status:
           type: string
           description: Текущий статус заказа
-        serviceTitle:
+        title:
           type: string
-          description: Название услуги
+          description: ???????? ??????
         totalPrice:
           type: number
           nullable: true

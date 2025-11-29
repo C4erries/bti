@@ -18,17 +18,6 @@ export interface CurrentUserResponse {
   isAdmin?: boolean;
 }
 
-export interface Service {
-  code: number;
-  title: string;
-  description?: string | null;
-  departmentCode?: string | null;
-  basePrice?: number | null;
-  baseDurationDays?: number | null;
-  requiredDocs?: Record<string, unknown> | null;
-  isActive?: boolean;
-}
-
 export interface District {
   code: string;
   name: string;
@@ -44,11 +33,9 @@ export interface HouseType {
 export interface Order {
   id: string;
   clientId: string;
-  serviceCode: number;
   status: string;
   title: string;
   description?: string | null;
-  serviceTitle?: string | null;
   address?: string | null;
   districtCode?: string | null;
   houseTypeCode?: string | null;
@@ -95,7 +82,7 @@ export interface OrderStatusHistoryItem {
 export interface ExecutorOrderListItem {
   id: string;
   status: string;
-  serviceTitle: string;
+  title: string;
   totalPrice?: number | null;
   createdAt: string;
   complexity?: string | null;
@@ -167,8 +154,6 @@ export interface AiAnalysis {
 export interface ClientChatThread {
   chatId: string;
   orderId?: string | null;
-  serviceCode: number;
-  serviceTitle: string;
   orderStatus?: string;
   lastMessageText?: string | null;
   updatedAt: string;
@@ -248,7 +233,6 @@ export interface CalculatorInput {
 }
 
 export interface PriceCalculatorRequest {
-  serviceCode: number;
   districtCode?: string | null;
   houseTypeCode?: string | null;
   calculatorInput?: CalculatorInput | null;
@@ -289,8 +273,6 @@ export interface AdminOrderListItem {
   status: string;
   title: string;
   description?: string | null;
-  serviceCode: number;
-  serviceTitle?: string | null;
   clientId: string;
   clientName?: string | null;
   executorId?: string | null;

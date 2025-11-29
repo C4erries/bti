@@ -20,9 +20,7 @@ import type {
 const normalizeThread = (t: Partial<ClientChatThread> & Record<string, any>): ClientChatThread => ({
   chatId: t.chatId || (t as any).id || (t as any).orderId || crypto.randomUUID(),
   orderId: t.orderId ?? (t as any).order_id ?? null,
-  serviceCode: Number(t.serviceCode ?? 0),
-  serviceTitle: t.serviceTitle ?? (t as any).title ?? 'Без названия',
-  orderStatus: t.orderStatus,
+  orderStatus: t.orderStatus ?? (t as any).order_status ?? null,
   lastMessageText: t.lastMessageText ?? (t as any).lastMessage ?? null,
   updatedAt: t.updatedAt ?? (t as any).createdAt ?? new Date().toISOString(),
 });
@@ -122,7 +120,7 @@ const ClientChatPage = () => {
             <h3 className={sectionTitleClass}>Чат</h3>
             {order && (
               <div className="mt-1 flex flex-wrap gap-2 text-sm">
-                <span className={badgeClass}>{order.serviceTitle || order.serviceCode}</span>
+                <span className={badgeClass}>{order.title}</span>
                 <span className={badgeClass}>Статус: {order.status}</span>
               </div>
             )}

@@ -42,19 +42,6 @@ CREATE TABLE departments (
     description TEXT
 );
 
-CREATE TABLE services (
-    code                INTEGER         PRIMARY KEY,
-    title               VARCHAR(255)    NOT NULL,
-    description         TEXT,
-    department_code     VARCHAR(50),
-    base_price          DOUBLE PRECISION,
-    base_duration_days  INTEGER,
-    required_docs       JSON,
-    is_active           BOOLEAN         NOT NULL DEFAULT TRUE,
-    CONSTRAINT fk_services_department
-        FOREIGN KEY (department_code) REFERENCES departments(code)
-);
-
 CREATE TABLE districts (
     code        VARCHAR(50)     PRIMARY KEY,
     name        VARCHAR(255)    NOT NULL,
@@ -73,7 +60,6 @@ CREATE TABLE house_types (
 CREATE TABLE orders (
     id                      UUID            PRIMARY KEY,
     client_id               UUID            NOT NULL,
-    service_code            INTEGER         NOT NULL,
     current_department_code VARCHAR(50),
     department_code         VARCHAR(50),
     district_code           VARCHAR(50),
@@ -95,8 +81,6 @@ CREATE TABLE orders (
     updated_at              TIMESTAMPTZ     NOT NULL,
     CONSTRAINT fk_orders_client
         FOREIGN KEY (client_id) REFERENCES users(id),
-    CONSTRAINT fk_orders_service
-        FOREIGN KEY (service_code) REFERENCES services(code),
     CONSTRAINT fk_orders_current_department
         FOREIGN KEY (current_department_code) REFERENCES departments(code),
     CONSTRAINT fk_orders_department
@@ -151,16 +135,13 @@ CREATE TABLE chat_threads (
     id              UUID            PRIMARY KEY,
     client_id       UUID            NOT NULL,
     order_id        UUID,
-    service_code    INTEGER,
     title           VARCHAR(255)    NOT NULL,
     created_at      TIMESTAMPTZ     NOT NULL,
     updated_at      TIMESTAMPTZ     NOT NULL,
     CONSTRAINT fk_chat_threads_client
         FOREIGN KEY (client_id) REFERENCES users(id),
     CONSTRAINT fk_chat_threads_order
-        FOREIGN KEY (order_id) REFERENCES orders(id),
-    CONSTRAINT fk_chat_threads_service
-        FOREIGN KEY (service_code) REFERENCES services(code)
+        FOREIGN KEY (order_id) REFERENCES orders(id)
 );
 
 CREATE TABLE order_chat_messages (

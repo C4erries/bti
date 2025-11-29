@@ -23,8 +23,6 @@ def list_client_chats(db: Session = Depends(get_db_session), current_user=Depend
         threads.append(
             ClientChatThread(
                 chatId=chat.id,
-                serviceCode=chat.service_code,
-                serviceTitle=chat.order.service.title if chat.order and chat.order.service else None,
                 orderId=chat.order_id,
                 orderStatus=chat.order.status.value if chat.order else None,
                 lastMessageText=last_msg.message_text if last_msg else None,
@@ -50,8 +48,6 @@ def create_chat(
     last_msg = chat_service.list_chat_messages(db, chat)[-1] if chat.messages else None
     return ClientChatThread(
         chatId=chat.id,
-        serviceCode=chat.service_code,
-        serviceTitle=chat.order.service.title if chat.order and chat.order.service else None,
         orderId=chat.order_id,
         orderStatus=chat.order.status.value if chat.order else None,
         lastMessageText=last_msg.message_text if last_msg else None,

@@ -2,7 +2,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class PriceCalculatorInput(BaseModel):
-    service_code: int = Field(alias="serviceCode")
     district_code: str | None = Field(default=None, alias="districtCode")
     house_type_code: str | None = Field(default=None, alias="houseTypeCode")
     calculator_input: dict | None = Field(default=None, alias="calculatorInput")
@@ -11,9 +10,8 @@ class PriceCalculatorInput(BaseModel):
         populate_by_name=True,
         json_schema_extra={
             "example": {
-                "serviceCode": 101,
-                "districtCode": "CENTRAL",
-                "houseTypeCode": "PANEL",
+                "districtCode": "central",
+                "houseTypeCode": "panel",
                 "calculatorInput": {
                     "area": 52.3,
                     "works": {

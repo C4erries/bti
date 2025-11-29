@@ -141,23 +141,14 @@ def get_user_orders(
     # Формируем упрощенный список заказов для админки
     result = []
     for order in orders:
-        # Определяем роль пользователя в заказе
         role = "client" if order.client_id == user_id else "executor"
-        
-        # Получаем название услуги
-        service_title = None
-        if order.service:
-            service_title = order.service.title
-        
         result.append({
             "id": str(order.id),
             "title": order.title,
-            "status": order.status.value if hasattr(order.status, 'value') else str(order.status),
-            "serviceTitle": service_title,
+            "status": order.status.value if hasattr(order.status, "value") else str(order.status),
             "role": role,
             "createdAt": order.created_at.isoformat() if order.created_at else None,
             "totalPrice": order.total_price,
             "address": order.address,
         })
-    
     return result

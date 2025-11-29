@@ -8,7 +8,6 @@ from sqlalchemy import (
     Enum,
     Float,
     ForeignKey,
-    Integer,
     JSON,
     String,
     Text,
@@ -51,7 +50,6 @@ class Order(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
     client_id: Mapped[uuid.UUID] = mapped_column(GUID(), ForeignKey("users.id"), nullable=False)
-    service_code: Mapped[int] = mapped_column(Integer, ForeignKey("services.code"), nullable=False)
     current_department_code: Mapped[str | None] = mapped_column(String(50), ForeignKey("departments.code"))
     department_code: Mapped[str | None] = mapped_column(String(50), ForeignKey("departments.code"))
     district_code: Mapped[str | None] = mapped_column(String(50), ForeignKey("districts.code"))
@@ -79,7 +77,6 @@ class Order(Base):
     )
 
     client: Mapped["User"] = relationship("User", back_populates="client_orders", foreign_keys=[client_id])
-    service: Mapped["Service"] = relationship("Service", back_populates="orders")
     department: Mapped["Department"] = relationship(
         "Department", foreign_keys=[current_department_code]
     )

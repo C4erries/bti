@@ -1,465 +1,196 @@
-openapi: 3.1.0
+openapi: 3.0.3
 info:
-  title: Умное БТИ
-  description: MVP платформы для клиентов, исполнителей и администраторов
+  title: Smart BTI API
   version: 0.1.0
+  description: >
+    Хакатонный API для проекта "Умное БТИ".
+    Основные сущности: пользователи, заказы, файлы, AI-анализ, RAG, справочники.
+
+servers:
+  - url: http://localhost:8000/api/v1
+  - url: https://api.smart-bti.local
+
+tags:
+  - name: Auth
+  - name: Client
+  - name: Executor
+  - name: Admin
+  - name: Public
+  - name: AI
+
 paths:
-  /api/v1/auth/register/client:
+  ####################################################
+  # AUTH
+  ####################################################
+  /auth/register/client:
     post:
-      tags:
-      - Auth
+      tags: [Auth]
       summary: Регистрация клиента
-      operationId: register_client_api_v1_auth_register_client_post
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/RegisterClientRequest'
-        required: true
       responses:
         '201':
-          description: Successful Response
+          description: Клиент зарегистрирован
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/auth/login:
+  /auth/login:
     post:
-      tags:
-      - Auth
-      summary: Логин
-      operationId: login_api_v1_auth_login_post
+      tags: [Auth]
+      summary: Логин, получение токена
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/LoginRequest'
-        required: true
       responses:
         '200':
-          description: Successful Response
+          description: Успешная аутентификация
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthTokenResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/auth/me:
+  /auth/me:
     get:
-      tags:
-      - Auth
+      tags: [Auth]
       summary: Текущий пользователь
-      operationId: read_me_api_v1_auth_me_get
       responses:
         '200':
-          description: Successful Response
+          description: Информация о текущем пользователе
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CurrentUserResponse'
-      security:
-      - HTTPBearer: []
-  /api/v1/services:
+
+  ####################################################
+  /districts:
     get:
-      tags:
-      - Public
-      summary: List Services
-      operationId: list_services_api_v1_services_get
+      tags: [Public]
+      summary: Список округов
       responses:
         '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/ServiceRead'
-                type: array
-                title: Response List Services Api V1 Services Get
-  /api/v1/services/{serviceId}:
-    get:
-      tags:
-      - Public
-      summary: Get Service
-      operationId: get_service_api_v1_services__serviceId__get
-      parameters:
-      - name: serviceId
-        in: path
-        required: true
-        schema:
-          type: integer
-          title: Serviceid
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServiceRead'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/districts:
-    get:
-      tags:
-      - Public
-      summary: List Districts
-      operationId: list_districts_api_v1_districts_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/DistrictRead'
-                type: array
-                title: Response List Districts Api V1 Districts Get
-  /api/v1/districts/{code}:
-    get:
-      tags:
-      - Public
-      summary: Get District
-      operationId: get_district_api_v1_districts__code__get
-      parameters:
-      - name: code
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Code
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DistrictRead'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/house-types:
-    get:
-      tags:
-      - Public
-      summary: List House Types
-      operationId: list_house_types_api_v1_house_types_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/HouseTypeRead'
-                type: array
-                title: Response List House Types Api V1 House Types Get
-  /api/v1/house-types/{code}:
-    get:
-      tags:
-      - Public
-      summary: Get House Type
-      operationId: get_house_type_api_v1_house_types__code__get
-      parameters:
-      - name: code
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Code
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HouseTypeRead'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/client/chats:
-    get:
-      tags:
-      - Client
-      summary: List Client Chats
-      operationId: list_client_chats_api_v1_client_chats_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/ClientChatThread'
-                type: array
-                title: Response List Client Chats Api V1 Client Chats Get
-      security:
-      - HTTPBearer: []
-    post:
-      tags:
-      - Client
-      summary: Create Chat
-      operationId: create_chat_api_v1_client_chats_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateChatRequest'
-        required: true
-      responses:
-        '201':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ClientChatThread'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-      security:
-      - HTTPBearer: []
-  /api/v1/chats/{chat_id}/messages:
-    get:
-      tags:
-      - Client
-      summary: List Messages
-      operationId: list_messages_api_v1_chats__chat_id__messages_get
-      security:
-      - HTTPBearer: []
-      parameters:
-      - name: chat_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Chat Id
-      responses:
-        '200':
-          description: Successful Response
+          description: Округа
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/OrderChatMessage'
-                title: Response List Messages Api V1 Chats  Chat Id  Messages Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    post:
-      tags:
-      - Client
-      summary: Post Message
-      operationId: post_message_api_v1_chats__chat_id__messages_post
-      security:
-      - HTTPBearer: []
-      parameters:
-      - name: chat_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Chat Id
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ChatMessageCreate'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ChatMessagePairResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/orders/{order_id}/chat:
+                  $ref: '#/components/schemas/District'
+  /districts/{code}:
     get:
-      tags:
-      - Client
-      summary: Order Chat Messages
-      operationId: order_chat_messages_api_v1_orders__order_id__chat_get
-      security:
-      - HTTPBearer: []
+      tags: [Public]
+      summary: Округ по коду
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+        - in: path
+          name: code
+          required: true
+          schema:
+            type: string
       responses:
         '200':
-          description: Successful Response
+          description: Округ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/District'
+
+  /house-types:
+    get:
+      tags: [Public]
+      summary: Список типов домов
+      responses:
+        '200':
+          description: Типы домов
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/OrderChatMessage'
-                title: Response Order Chat Messages Api V1 Orders  Order Id  Chat
-                  Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    post:
-      tags:
-      - Client
-      summary: Post Order Chat Message
-      operationId: post_order_chat_message_api_v1_orders__order_id__chat_post
-      security:
-      - HTTPBearer: []
-      parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ChatMessageCreate'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ChatMessagePairResponse'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/client/orders:
+                  $ref: '#/components/schemas/HouseType'
+  /house-types/{code}:
     get:
-      tags:
-      - Client
-      summary: List Client Orders
-      operationId: list_client_orders_api_v1_client_orders_get
+      tags: [Public]
+      summary: Тип дома по коду
+      parameters:
+        - in: path
+          name: code
+          required: true
+          schema:
+            type: string
       responses:
         '200':
-          description: Successful Response
+          description: Тип дома
           content:
             application/json:
               schema:
+                $ref: '#/components/schemas/HouseType'
+
+  ####################################################
+  # CLIENT
+  ####################################################
+  /client/orders:
+    get:
+      tags: [Client]
+      summary: Список заказов клиента
+      responses:
+        '200':
+          description: Мои заказы
+          content:
+            application/json:
+              schema:
+                type: array
                 items:
                   $ref: '#/components/schemas/Order'
-                type: array
-                title: Response List Client Orders Api V1 Client Orders Get
-      security:
-      - HTTPBearer: []
     post:
-      tags:
-      - Client
-      summary: Create Order
-      operationId: create_order_api_v1_client_orders_post
+      tags: [Client]
+      summary: Создать заказ
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateOrderRequest'
-        required: true
       responses:
         '201':
-          description: Successful Response
+          description: Заказ создан
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Order'
-        '422':
-          description: Unprocessable Entity
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-      security:
-      - HTTPBearer: []
-  /api/v1/client/orders/{order_id}:
+  /client/orders/{orderId}:
     get:
-      tags:
-      - Client
-      summary: Get Order
-      operationId: get_order_api_v1_client_orders__order_id__get
-      security:
-      - HTTPBearer: []
+      tags: [Client]
+      summary: Детали заказа клиента
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Successful Response
+          description: Заказ
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Order'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
     patch:
-      tags:
-      - Client
-      summary: Update Order
-      operationId: update_order_api_v1_client_orders__order_id__patch
-      security:
-      - HTTPBearer: []
+      tags: [Client]
+      summary: Обновить заказ (например, пока DRAFT)
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -468,136 +199,247 @@ paths:
               $ref: '#/components/schemas/UpdateOrderRequest'
       responses:
         '200':
-          description: Successful Response
+          description: Обновленный заказ
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Order'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/client/orders/{order_id}/files:
+
+  /orders/{orderId}/files:
     post:
-      tags:
-      - Client
-      summary: Upload File
-      operationId: upload_file_api_v1_client_orders__order_id__files_post
-      security:
-      - HTTPBearer: []
+      tags: [Client]
+      summary: Загрузить файл по заказу
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/Body_upload_file_api_v1_client_orders__order_id__files_post'
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
       responses:
         '201':
-          description: Successful Response
+          description: Файл загружен
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderFile'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
     get:
-      tags:
-      - Client
-      summary: Get Files
-      operationId: get_files_api_v1_client_orders__order_id__files_get
-      security:
-      - HTTPBearer: []
+      tags: [Client]
+      summary: Список файлов заказа
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Successful Response
+          description: Файлы
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/OrderFile'
-                title: Response Get Files Api V1 Client Orders  Order Id  Files Get
-        '422':
-          description: Validation Error
+
+  /orders/{orderId}/files/{fileId}:
+    get:
+      tags: [Client]
+      summary: Скачать файл заказа
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: fileId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Файл
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  /orders/{orderId}/ai/messages:
+    post:
+      tags: [Client]
+      summary: Отправить сообщение в чат с AI
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessageCreate'
+      responses:
+        '200':
+          description: Сообщение пользователя и ответ AI
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/client/orders/{order_id}/plan:
+                $ref: '#/components/schemas/ChatMessagePairResponse'
     get:
-      tags:
-      - Client
-      summary: Get Plan Versions
-      operationId: get_plan_versions_api_v1_client_orders__order_id__plan_get
-      security:
-      - HTTPBearer: []
+      tags: [Client]
+      summary: История чата по заказу
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
-      - name: version
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Version
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Successful Response
+          description: Сообщения чата
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderChatMessage'
+
+  /orders/{orderId}/chat:
+    post:
+      tags: [Client]
+      summary: Отправка сообщения в чат заказа
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessageCreate'
+      responses:
+        '200':
+          description: Ответ с сообщениями пользователя/AI (стаб)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessagePairResponse'
+    get:
+      tags: [Client]
+      summary: История сообщений чата
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Список сообщений
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderChatMessage'
+
+  /orders/{orderId}/ai/analyze:
+    post:
+      tags: [Client]
+      summary: Запустить AI-анализ перепланировки
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Итоговый анализ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiAnalysis'
+
+  /orders/{orderId}/ai/analysis:
+    get:
+      tags: [Client]
+      summary: Получить сохранённый результат AI-анализа
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Анализ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiAnalysis'
+
+  /orders/{orderId}/plan:
+    get:
+      tags: [Client]
+      summary: Получить план помещения (2D модель)
+      parameters:
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: version
+          schema:
+            type: string
+            enum: [original, modified]
+      responses:
+        '200':
+          description: План помещения
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderPlanVersion'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/client/orders/{order_id}/plan/changes:
+  /orders/{orderId}/plan/changes:
     post:
-      tags:
-      - Client
-      summary: Add Plan Change
-      operationId: add_plan_change_api_v1_client_orders__order_id__plan_changes_post
-      security:
-      - HTTPBearer: []
+      tags: [Client]
+      summary: Сохранить изменения плана (geometry JSON)
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -606,402 +448,243 @@ paths:
               $ref: '#/components/schemas/SavePlanChangesRequest'
       responses:
         '200':
-          description: Successful Response
+          description: Обновлённый план
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/OrderPlanVersion'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/client/orders/{order_id}/status-history:
+
+  /client/chats:
     get:
-      tags:
-      - Client
-      summary: Get Status History
-      operationId: get_status_history_api_v1_client_orders__order_id__status_history_get
-      security:
-      - HTTPBearer: []
-      parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+      tags: [Client]
+      summary: ������?�?�� ����� ��'��
       responses:
         '200':
-          description: Successful Response
+          description: ������< �����'��
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/OrderStatusHistoryItem'
-                title: Response Get Status History Api V1 Client Orders  Order Id  Status
-                  History Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/client/orders/{order_id}/ai/analyze:
+                  $ref: '#/components/schemas/ClientChatThread'
     post:
-      tags:
-      - Client
-      summary: Trigger Ai Analyze
-      operationId: trigger_ai_analyze_api_v1_client_orders__order_id__ai_analyze_post
-      security:
-      - HTTPBearer: []
-      parameters:
-      - name: order_id
-        in: path
+      tags: [Client]
+      summary: ��������� ��'��
+      requestBody:
         required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChatRequest'
       responses:
-        '200':
-          description: Successful Response
+        '201':
+          description: ����� ��'��
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AiAnalysis'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/client/orders/{order_id}/files/{file_id}:
+                $ref: '#/components/schemas/ClientChatThread'
+
+  /chats/{chatId}/messages:
     get:
-      tags:
-      - Client
-      summary: Download File
-      operationId: download_file_api_v1_client_orders__order_id__files__file_id__get
-      security:
-      - HTTPBearer: []
+      tags: [Client]
+      summary: ������?�?�� �ؐ��'�� ��'��
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
-      - name: file_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: File Id
+        - in: path
+          name: chatId
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
+          description: ������< ��������� � ��'��
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/client/orders/{order_id}/ai/analysis:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderChatMessage'
+    post:
+      tags: [Client]
+      summary: ��������� ��������� � ��'��
+      parameters:
+        - in: path
+          name: chatId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatMessageCreate'
+      responses:
+        '200':
+          description: ��������� ��������� � ����� AI (stub)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatMessagePairResponse'
+
+  ####################################################
+  # EXECUTOR
+  ####################################################
+  /executor/orders:
     get:
-      tags:
-      - Client
-      summary: Get Ai Analysis
-      operationId: get_ai_analysis_api_v1_client_orders__order_id__ai_analysis_get
-      security:
-      - HTTPBearer: []
+      tags: [Executor]
+      summary: Список заказов исполнителя (панель управления)
+      description: >
+        Возвращает заказы, доступные исполнителю, с возможностью фильтрации по статусу и отделу.
+        По умолчанию отсортированы от старых к новым (createdAt ASC).
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+        - in: query
+          name: status
+          description: Фильтр по статусу заказа
+          schema:
+            type: string
+            enum: [NEW, IN_PROGRESS, DONE]
+        - in: query
+          name: departmentCode
+          description: Фильтр по отделу (LEGAL, MASTERS, SUPPORT и т.п.)
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            default: 20
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
       responses:
         '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AiAnalysis'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/executor/orders:
-    get:
-      tags:
-      - Executor
-      summary: List Executor Orders
-      operationId: list_executor_orders_api_v1_executor_orders_get
-      security:
-      - HTTPBearer: []
-      parameters:
-      - name: status
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Status
-      - name: department_code
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Department Code
-      responses:
-        '200':
-          description: Successful Response
+          description: Заказы исполнителя для таблицы («панель управления»)
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/ExecutorOrderListItem'
-                title: Response List Executor Orders Api V1 Executor Orders Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/executor/orders/{order_id}:
+
+  /executor/orders/{orderId}:
     get:
-      tags:
-      - Executor
-      summary: Get Order
-      operationId: get_order_api_v1_executor_orders__order_id__get
-      security:
-      - HTTPBearer: []
+      tags: [Executor]
+      summary: Страница заказа для исполнителя («Подробнее»)
+      description: >
+        Возвращает общий контекст заказа: общая информация, стоимость, статус,
+        отдел, ссылки на файлы, план и историю статусов.
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Successful Response
+          description: Детали заказа для исполнителя
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ExecutorOrderDetails'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/executor/orders/{order_id}/take:
-    post:
-      tags:
-      - Executor
-      summary: Take Order
-      operationId: take_order_api_v1_executor_orders__order_id__take_post
-      security:
-      - HTTPBearer: []
-      parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExecutorOrderDetails'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/executor/orders/{order_id}/decline:
-    post:
-      tags:
-      - Executor
-      summary: Decline Order
-      operationId: decline_order_api_v1_executor_orders__order_id__decline_post
-      security:
-      - HTTPBearer: []
-      parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExecutorOrderDetails'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/executor/orders/{order_id}/files:
+
+
+  /executor/orders/{orderId}/files:
     get:
-      tags:
-      - Executor
-      summary: List Files
-      operationId: list_files_api_v1_executor_orders__order_id__files_get
-      security:
-      - HTTPBearer: []
+      tags: [Executor]
+      summary: Файлы заказа для исполнителя
+      description: >
+        Доступ к загруженным клиентом документам и сформированным файлам по заказу.
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Successful Response
+          description: Файлы заказа
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/OrderFile'
-                title: Response List Files Api V1 Executor Orders  Order Id  Files
-                  Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/executor/orders/{order_id}/status-history:
+
+  /executor/calendar:
     get:
-      tags:
-      - Executor
-      summary: List Status History
-      operationId: list_status_history_api_v1_executor_orders__order_id__status_history_get
-      security:
-      - HTTPBearer: []
-      parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+      tags: [Executor]
+      summary: Календарь выездов исполнителя
+      description: >
+        Только просмотр календаря выездов для текущего исполнителя.
       responses:
         '200':
-          description: Successful Response
+          description: События календаря исполнителя
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/OrderStatusHistoryItem'
-                title: Response List Status History Api V1 Executor Orders  Order
-                  Id  Status History Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/executor/orders/{order_id}/available-slots:
+                  $ref: '#/components/schemas/ExecutorCalendarEvent'
+
+  /executor/orders/{orderId}/available-slots:
     get:
-      tags:
-      - Executor
-      summary: Available Slots
-      operationId: available_slots_api_v1_executor_orders__order_id__available_slots_get
-      security:
-      - HTTPBearer: []
+      tags: [Executor]
+      summary: Доступные слоты для выезда по заказу
+      description: >
+        Возвращает список доступных временных ячеек для выезда по этому заказу
+        для текущего исполнителя. Фронт сначала выбирает дату, затем показывает
+        доступные слоты в этот день/диапазон.
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
-      - name: dateFrom
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Datefrom
-      - name: dateTo
-        in: query
-        required: false
-        schema:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Dateto
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: dateFrom
+          description: Дата начала диапазона (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: dateTo
+          description: Дата конца диапазона (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
       responses:
         '200':
-          description: Successful Response
+          description: Доступные временные слоты для бронирования
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/AvailableSlot'
-                title: Response Available Slots Api V1 Executor Orders  Order Id  Available
-                  Slots Get
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/executor/orders/{order_id}/schedule-visit:
+
+  /executor/orders/{orderId}/schedule-visit:
     post:
-      tags:
-      - Executor
-      summary: Schedule Visit
-      operationId: schedule_visit_api_v1_executor_orders__order_id__schedule_visit_post
-      security:
-      - HTTPBearer: []
+      tags: [Executor]
+      summary: Забронировать выезд по заказу в выбранный слот
+      description: >
+        Исполнитель выбирает один из доступных слотов и бронирует выезд по заказу.
+        Создаётся событие в календаре исполнителя и обновляется plannedVisitAt у заказа.
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -1010,158 +693,58 @@ paths:
               $ref: '#/components/schemas/ExecutorScheduleVisitRequest'
       responses:
         '200':
-          description: Successful Response
+          description: Выезд успешно забронирован
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ExecutorCalendarEvent'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-    patch:
-      tags:
-      - Executor
-      summary: Update Visit
-      operationId: update_visit_api_v1_executor_orders__order_id__schedule_visit_patch
-      security:
-      - HTTPBearer: []
-      parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ScheduleVisitUpdateRequest'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExecutorCalendarEvent'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/executor/calendar:
+        '409':
+          description: Слот уже занят или недоступен
+
+  ####################################################
+  # ADMIN (сокращённый набор)
+  ####################################################
+  /admin/users:
     get:
-      tags:
-      - Executor
-      summary: Get Calendar
-      operationId: get_calendar_api_v1_executor_calendar_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/ExecutorCalendarEvent'
-                type: array
-                title: Response Get Calendar Api V1 Executor Calendar Get
-      security:
-      - HTTPBearer: []
-  /api/v1/admin/executors:
-    post:
-      tags:
-      - Admin
-      summary: Создать исполнителя
-      operationId: create_executor_api_v1_admin_executors_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RegisterExecutorRequest'
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExecutorDetails'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-      security:
-      - HTTPBearer: []
-  /api/v1/admin/users:
-    get:
-      tags:
-      - Admin
+      tags: [Admin]
       summary: Список пользователей
-      operationId: list_users_api_v1_admin_users_get
       responses:
         '200':
-          description: Successful Response
+          description: Пользователи
           content:
             application/json:
               schema:
+                type: array
                 items:
                   $ref: '#/components/schemas/User'
-                type: array
-                title: Response List Users Api V1 Admin Users Get
-      security:
-      - HTTPBearer: []
-  /api/v1/admin/users/{user_id}:
+  /admin/users/{userId}:
     get:
-      tags:
-      - Admin
-      summary: Get User
-      operationId: get_user_api_v1_admin_users__user_id__get
-      security:
-      - HTTPBearer: []
+      tags: [Admin]
+      summary: Детали пользователя
       parameters:
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: User Id
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Successful Response
+          description: Пользователь
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
     patch:
-      tags:
-      - Admin
-      summary: Update User
-      operationId: update_user_api_v1_admin_users__user_id__patch
-      security:
-      - HTTPBearer: []
+      tags: [Admin]
+      summary: Обновить пользователя (например, is_admin)
       parameters:
-      - name: user_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: User Id
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -1170,79 +753,79 @@ paths:
               $ref: '#/components/schemas/UpdateUserRequest'
       responses:
         '200':
-          description: Successful Response
+          description: Обновленный пользователь
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
-        '422':
-          description: Validation Error
+                
+  /admin/executors:
+    post:
+      tags: [Admin]
+      summary: Создать исполнителя (пользователь + профиль исполнителя)
+      description: >
+        Создаёт нового пользователя с ролью исполнителя: user + запись в executor_profile.
+        Используется только админом. Исполнитель потом входит через обычный /auth/login.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCreateExecutorRequest'
+      responses:
+        '201':
+          description: Исполнитель успешно создан
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/admin/orders:
+                $ref: '#/components/schemas/ExecutorDetails'
+        '400':
+          description: Невалидные данные
+        '409':
+          description: Пользователь с таким email уже существует
+
+
+  /admin/orders:
     get:
-      tags:
-      - Admin
+      tags: [Admin]
       summary: Список заказов (админ)
-      operationId: list_orders_api_v1_admin_orders_get
       responses:
         '200':
-          description: Successful Response
+          description: Заказы
           content:
             application/json:
               schema:
+                type: array
                 items:
                   $ref: '#/components/schemas/Order'
-                type: array
-                title: Response List Orders Api V1 Admin Orders Get
-      security:
-      - HTTPBearer: []
-  /api/v1/admin/orders/{order_id}:
+  /admin/orders/{orderId}:
     get:
-      tags:
-      - Admin
-      summary: Детали заказа (админ)
-      operationId: get_order_api_v1_admin_orders__order_id__get
-      security:
-      - HTTPBearer: []
+      tags: [Admin]
+      summary: Детали заказа (полный контекст)
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         '200':
-          description: Successful Response
+          description: Заказ
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Order'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
     patch:
-      tags:
-      - Admin
-      summary: Обновление заказа (админ)
-      operationId: update_order_api_v1_admin_orders__order_id__patch
-      security:
-      - HTTPBearer: []
+      tags: [Admin]
+      summary: Изменить заказ (статус, отдел и т.п.)
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -1251,34 +834,23 @@ paths:
               $ref: '#/components/schemas/AdminUpdateOrderRequest'
       responses:
         '200':
-          description: Successful Response
+          description: Обновленный заказ
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Order'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/admin/orders/{order_id}/assign-executor:
+
+  /admin/orders/{orderId}/assign-executor:
     post:
-      tags:
-      - Admin
-      - Admin
-      summary: Assign Executor
-      operationId: assign_executor_api_v1_admin_orders__order_id__assign_executor_post
-      security:
-      - HTTPBearer: []
+      tags: [Admin]
+      summary: Назначить исполнителя на заказ
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -1287,33 +859,19 @@ paths:
               $ref: '#/components/schemas/AssignExecutorRequest'
       responses:
         '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/admin/orders/{order_id}/schedule-visit:
+          description: Назначение исполнителя создано
+
+  /admin/orders/{orderId}/schedule-visit:
     post:
-      tags:
-      - Admin
-      - Admin
-      summary: Schedule Visit
-      operationId: schedule_visit_api_v1_admin_orders__order_id__schedule_visit_post
-      security:
-      - HTTPBearer: []
+      tags: [Admin]
+      summary: Запланировать выезд по заказу
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -1322,33 +880,17 @@ paths:
               $ref: '#/components/schemas/ScheduleVisitRequest'
       responses:
         '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExecutorCalendarEvent'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
+          description: Выезд запланирован
     patch:
-      tags:
-      - Admin
-      - Admin
-      summary: Update Visit
-      operationId: update_visit_api_v1_admin_orders__order_id__schedule_visit_patch
-      security:
-      - HTTPBearer: []
+      tags: [Admin]
+      summary: Обновить / перенести / отменить выезд по заказу
       parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-          title: Order Id
+        - in: path
+          name: orderId
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -1357,1881 +899,712 @@ paths:
               $ref: '#/components/schemas/ScheduleVisitUpdateRequest'
       responses:
         '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExecutorCalendarEvent'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/admin/services:
-    get:
-      tags:
-      - Admin
-      summary: List Services
-      operationId: list_services_api_v1_admin_services_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/ServiceRead'
-                type: array
-                title: Response List Services Api V1 Admin Services Get
-      security:
-      - HTTPBearer: []
-    post:
-      tags:
-      - Admin
-      summary: Create Service
-      operationId: create_service_api_v1_admin_services_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ServiceCreate'
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServiceRead'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-      security:
-      - HTTPBearer: []
-  /api/v1/admin/services/{code}:
-    patch:
-      tags:
-      - Admin
-      summary: Update Service
-      operationId: update_service_api_v1_admin_services__code__patch
-      security:
-      - HTTPBearer: []
-      parameters:
-      - name: code
-        in: path
-        required: true
-        schema:
-          type: integer
-          title: Code
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ServiceUpdate'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ServiceRead'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/admin/departments:
-    get:
-      tags:
-      - Admin
-      summary: List Departments
-      operationId: list_departments_api_v1_admin_departments_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/DepartmentRead'
-                type: array
-                title: Response List Departments Api V1 Admin Departments Get
-      security:
-      - HTTPBearer: []
-    post:
-      tags:
-      - Admin
-      summary: Create Department
-      operationId: create_department_api_v1_admin_departments_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DepartmentCreate'
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DepartmentRead'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-      security:
-      - HTTPBearer: []
-  /api/v1/admin/departments/{code}:
-    patch:
-      tags:
-      - Admin
-      summary: Update Department
-      operationId: update_department_api_v1_admin_departments__code__patch
-      security:
-      - HTTPBearer: []
-      parameters:
-      - name: code
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Code
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DepartmentUpdate'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DepartmentRead'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/admin/districts:
-    post:
-      tags:
-      - Admin
-      summary: Create District
-      operationId: create_district_api_v1_admin_districts_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DistrictCreate'
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DistrictRead'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-      security:
-      - HTTPBearer: []
-  /api/v1/admin/districts/{code}:
-    patch:
-      tags:
-      - Admin
-      summary: Update District
-      operationId: update_district_api_v1_admin_districts__code__patch
-      security:
-      - HTTPBearer: []
-      parameters:
-      - name: code
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Code
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DistrictUpdate'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DistrictRead'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /api/v1/admin/house-types:
-    post:
-      tags:
-      - Admin
-      summary: Create House Type
-      operationId: create_house_type_api_v1_admin_house_types_post
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HouseTypeCreate'
-        required: true
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HouseTypeRead'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-      security:
-      - HTTPBearer: []
-  /api/v1/admin/house-types/{code}:
-    patch:
-      tags:
-      - Admin
-      summary: Update House Type
-      operationId: update_house_type_api_v1_admin_house_types__code__patch
-      security:
-      - HTTPBearer: []
-      parameters:
-      - name: code
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Code
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/HouseTypeUpdate'
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HouseTypeRead'
-        '422':
-          description: Validation Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HTTPValidationError'
-  /health:
-    get:
-      tags:
-      - system
-      summary: Проверка состояния
-      description: Простая проверка готовности сервера
-      operationId: healthcheck_health_get
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema: {}
+          description: Выезд обновлён
+
+  ####################################################
+  # COMPONENTS
+  ####################################################
 components:
   schemas:
-    AdminUpdateOrderRequest:
-      properties:
-        status:
-          anyOf:
-          - $ref: '#/components/schemas/OrderStatus'
-          - type: 'null'
-        currentDepartmentCode:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Currentdepartmentcode
-        estimatedPrice:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Estimatedprice
-        totalPrice:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Totalprice
+    ############################################
+    # AUTH
+    ############################################
+    RegisterClientRequest:
       type: object
-      title: AdminUpdateOrderRequest
-    AiAnalysis:
+      required: [email, password, fullName]
       properties:
-        id:
+        email:
           type: string
-          format: uuid
-          title: Id
-        orderId:
+          format: email
+        password:
           type: string
-          format: uuid
-          title: Orderid
-        decisionStatus:
+        fullName:
           type: string
-          title: Decisionstatus
-        summary:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Summary
-        risks:
-          anyOf:
-          - items:
-              $ref: '#/components/schemas/AiRisk'
-            type: array
-          - type: 'null'
-          title: Risks
-        legalWarnings:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Legalwarnings
-        financialWarnings:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Financialwarnings
-        rawResponse:
-          anyOf:
-          - type: object
-          - type: 'null'
-          title: Rawresponse
+        phone:
+          type: string
+          nullable: true
+
+    RegisterExecutorRequest:
       type: object
-      required:
-      - id
-      - orderId
-      - decisionStatus
-      title: AiAnalysis
-    AiRisk:
+      required: [email, password, fullName]
       properties:
-        type:
+        email:
           type: string
-          title: Type
-        description:
+          format: email
+        password:
           type: string
-          title: Description
-        severity:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Severity
-        zone:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Zone
+        fullName:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        departmentCode:
+          type: string
+          nullable: true
+        experienceYears:
+          type: integer
+          nullable: true
+
+    LoginRequest:
       type: object
-      required:
-      - type
-      - description
-      title: AiRisk
-    AssignExecutorRequest:
+      required: [email, password]
       properties:
-        executorId:
+        email:
           type: string
-          format: uuid
-          title: Executorid
-      type: object
-      required:
-      - executorId
-      title: AssignExecutorRequest
+          format: email
+        password:
+          type: string
+
     AuthTokenResponse:
+      type: object
+      required: [accessToken]
       properties:
         accessToken:
           type: string
-          title: Accesstoken
         tokenType:
           type: string
-          title: Tokentype
-          default: Bearer
-      type: object
-      required:
-      - accessToken
-      title: AuthTokenResponse
-    AvailableSlot:
-      properties:
-        startTime:
-          type: string
-          format: date-time
-          title: Starttime
-        endTime:
-          type: string
-          format: date-time
-          title: Endtime
-        isAvailable:
-          type: boolean
-          title: Isavailable
-          default: true
-      type: object
-      required:
-      - startTime
-      - endTime
-      title: AvailableSlot
-    Body_upload_file_api_v1_client_orders__order_id__files_post:
-      properties:
-        upload:
-          type: string
-          format: binary
-          title: Upload
-      type: object
-      required:
-      - upload
-      title: Body_upload_file_api_v1_client_orders__order_id__files_post
-    CalendarStatus:
-      type: string
-      enum:
-      - PLANNED
-      - DONE
-      - CANCELLED
-      title: CalendarStatus
-    ChatMessageCreate:
-      properties:
-        message:
-          type: string
-          title: Message
-      type: object
-      required:
-      - message
-      title: ChatMessageCreate
-    ChatMessagePairResponse:
-      properties:
-        userMessage:
-          anyOf:
-          - $ref: '#/components/schemas/OrderChatMessage'
-          - type: 'null'
-        aiMessage:
-          anyOf:
-          - $ref: '#/components/schemas/OrderChatMessage'
-          - type: 'null'
-      type: object
-      title: ChatMessagePairResponse
-    ClientChatThread:
-      properties:
-        chatId:
-          type: string
-          format: uuid
-          title: Chatid
-        serviceCode:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Servicecode
-        serviceTitle:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Servicetitle
-        orderId:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Orderid
-        orderStatus:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Orderstatus
-        lastMessageText:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Lastmessagetext
-        updatedAt:
-          type: string
-          format: date-time
-          title: Updatedat
-      type: object
-      required:
-      - chatId
-      - updatedAt
-      title: ClientChatThread
-    CreateChatRequest:
-      properties:
-        serviceCode:
-          type: integer
-          title: Servicecode
-        title:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Title
-        orderId:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Orderid
-        firstMessage:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Firstmessage
-      type: object
-      required:
-      - serviceCode
-      title: CreateChatRequest
-    CreateOrderRequest:
-      properties:
-        serviceCode:
-          type: integer
-          title: Servicecode
-        title:
-          type: string
-          title: Title
-        description:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Description
-        address:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Address
-        districtCode:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Districtcode
-        houseTypeCode:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Housetypecode
-        calculatorInput:
-          anyOf:
-          - type: object
-          - type: 'null'
-          title: Calculatorinput
-      type: object
-      required:
-      - serviceCode
-      - title
-      title: CreateOrderRequest
+          example: Bearer
+
     CurrentUserResponse:
+      type: object
       properties:
         user:
           $ref: '#/components/schemas/User'
         isClient:
           type: boolean
-          title: Isclient
         isExecutor:
           type: boolean
-          title: Isexecutor
         isAdmin:
           type: boolean
-          title: Isadmin
+
+    ############################################
+    # CORE ENTITIES
+    ############################################
+    User:
       type: object
-      required:
-      - user
-      - isClient
-      - isExecutor
-      - isAdmin
-      title: CurrentUserResponse
-    DepartmentCreate:
-      properties:
-        code:
-          type: string
-          title: Code
-        name:
-          type: string
-          title: Name
-        description:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Description
-      type: object
-      required:
-      - code
-      - name
-      title: DepartmentCreate
-    DepartmentRead:
-      properties:
-        code:
-          type: string
-          title: Code
-        name:
-          type: string
-          title: Name
-        description:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Description
-      type: object
-      required:
-      - code
-      - name
-      title: DepartmentRead
-    DepartmentUpdate:
-      properties:
-        name:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Name
-        description:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Description
-      type: object
-      title: DepartmentUpdate
-    DistrictCreate:
-      properties:
-        code:
-          type: string
-          title: Code
-        name:
-          type: string
-          title: Name
-        priceCoef:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Pricecoef
-          default: 1.0
-      type: object
-      required:
-      - code
-      - name
-      title: DistrictCreate
-    DistrictRead:
-      properties:
-        code:
-          type: string
-          title: Code
-        name:
-          type: string
-          title: Name
-        priceCoef:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Pricecoef
-          default: 1.0
-      type: object
-      required:
-      - code
-      - name
-      title: DistrictRead
-    DistrictUpdate:
-      properties:
-        name:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Name
-        priceCoef:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Pricecoef
-      type: object
-      title: DistrictUpdate
-    DoorElement:
+      required: [id, email, fullName, isAdmin]
       properties:
         id:
           type: string
-          title: Id
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        isAdmin:
+          type: boolean
+
+    Order:
+      type: object
+      required: [id, clientId, status, title, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        clientId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - SUBMITTED
+            - EXECUTOR_ASSIGNED
+            - VISIT_SCHEDULED
+            - DOCUMENTS_IN_PROGRESS
+            - COMPLETED
+            - CANCELLED
+            - REJECTED
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        districtCode:
+          type: string
+          nullable: true
+        houseTypeCode:
+          type: string
+          nullable: true
+        complexity:
+          type: string
+          nullable: true
+          enum: [LOW, MEDIUM, HIGH]
+        calculatorInput:
+          type: object
+          additionalProperties: true
+          nullable: true
+        estimatedPrice:
+          type: number
+          nullable: true
+        totalPrice:
+          type: number
+          nullable: true
+        currentDepartmentCode:
+          type: string
+          nullable: true
+        aiDecisionStatus:
+          type: string
+          nullable: true
+          enum: [UNKNOWN, ALLOWED, FORBIDDEN, NEEDS_APPROVAL]
+        aiDecisionSummary:
+          type: string
+          nullable: true
+        plannedVisitAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateOrderRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        districtCode:
+          type: string
+          nullable: true
+        houseTypeCode:
+          type: string
+          nullable: true
+        calculatorInput:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    UpdateOrderRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        districtCode:
+          type: string
+          nullable: true
+        houseTypeCode:
+          type: string
+          nullable: true
+        calculatorInput:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    AdminUpdateOrderRequest:
+      type: object
+      properties:
+        status:
+          type: string
+        currentDepartmentCode:
+          type: string
+          nullable: true
+        estimatedPrice:
+          type: number
+          nullable: true
+        totalPrice:
+          type: number
+          nullable: true
+
+    OrderFile:
+      type: object
+      required: [id, orderId, filename, path]
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+        senderId:
+          type: string
+          format: uuid
+          nullable: true
+        filename:
+          type: string
+        path:
+          type: string
+
+    OrderChatMessage:
+      type: object
+      required: [id, chatId, messageText, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        chatId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+          nullable: true
+        senderId:
+          type: string
+          format: uuid
+          nullable: true
+        senderType:
+          type: string
+          enum: [CLIENT, EXECUTOR, AI, ADMIN]
+        messageText:
+          type: string
+        meta:
+          type: object
+          additionalProperties: true
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    ChatMessageCreate:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    ChatMessagePairResponse:
+      type: object
+      properties:
+        userMessage:
+          $ref: '#/components/schemas/OrderChatMessage'
+        aiMessage:
+          $ref: '#/components/schemas/OrderChatMessage'
+
+    ClientChatThread:
+      type: object
+      properties:
+        chatId:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+          nullable: true
+        orderStatus:
+          type: string
+          nullable: true
+        lastMessageText:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateChatRequest:
+      type: object
+      required: []
+      properties:
+        title:
+          type: string
+          nullable: true
+        orderId:
+          type: string
+          format: uuid
+          nullable: true
+        firstMessage:
+          type: string
+          nullable: true
+
+    OrderPlanVersion:
+      type: object
+      required: [id, orderId, versionType, plan]
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+        versionType:
+          type: string
+          enum: [ORIGINAL, MODIFIED]
+        plan:
+          type: object
+          additionalProperties: true
+
+    SavePlanChangesRequest:
+      type: object
+      required: [versionType, plan]
+      properties:
+        versionType:
+          type: string
+          enum: [ORIGINAL, MODIFIED]
+        plan:
+          type: object
+          additionalProperties: true
+
+    AiAnalysis:
+      type: object
+      required: [id, orderId, decisionStatus]
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderId:
+          type: string
+          format: uuid
+        decisionStatus:
+          type: string
+          enum: [ALLOWED, FORBIDDEN, NEEDS_APPROVAL, UNKNOWN]
+        summary:
+          type: string
+          nullable: true
+        risks:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AiRisk'
+        legalWarnings:
+          type: string
+          nullable: true
+        financialWarnings:
+          type: string
+          nullable: true
+        rawResponse:
+          type: object
+          additionalProperties: true
+          nullable: true
+
+    AiRisk:
+      type: object
+      required: [type, description]
+      properties:
         type:
           type: string
-          enum:
-          - door
-          const: door
-          title: Type
-          default: door
-        role:
-          type: string
-          enum:
-          - EXISTING
-          - TO_DELETE
-          - NEW
-          - MODIFIED
-          title: Role
-        geometry:
-          $ref: '#/components/schemas/SegmentGeometry'
-      type: object
-      required:
-      - id
-      - role
-      - geometry
-      title: DoorElement
-    ExecutorCalendarEvent:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        executorId:
-          type: string
-          format: uuid
-          title: Executorid
-        orderId:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Orderid
-        title:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Title
+          enum: [TECHNICAL, LEGAL, FINANCIAL, OPERATIONAL]
         description:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Description
+          type: string
+        severity:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+        zone:
+          type: string
+          nullable: true
+    AvailableSlot:
+      type: object
+      description: >
+        Доступная временная ячейка для выезда. Показывается исполнителю в интерфейсе бронирования.
+      required: [startTime, endTime]
+      properties:
         startTime:
           type: string
           format: date-time
-          title: Starttime
+          description: Начало слота
         endTime:
           type: string
           format: date-time
-          title: Endtime
-        location:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Location
-        status:
-          $ref: '#/components/schemas/CalendarStatus'
-        createdAt:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Createdat
+          description: Конец слота
+        isAvailable:
+          type: boolean
+          description: Флаг доступности слота (обычно true, но оставляем на будущее)
+          default: true
+
+    ExecutorScheduleVisitRequest:
       type: object
-      required:
-      - id
-      - executorId
-      - startTime
-      - endTime
-      - status
-      title: ExecutorCalendarEvent
-    ExecutorDetails:
+      description: >
+        Запрос от исполнителя на бронь выезда в выбранный слот.
+        Бэкенд должен проверить, что этот слот входит в /available-slots.
+      required: [startTime, endTime]
       properties:
-        user:
-          $ref: '#/components/schemas/User'
-        executorProfile:
-          anyOf:
-          - type: object
-          - type: 'null'
-          title: Executorprofile
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        location:
+          type: string
+          nullable: true
+          description: >
+            Локация выезда (по умолчанию можно взять адрес заказа, фронт может не отправлять).
+    ExecutorOrderListItem:
       type: object
-      required:
-      - user
-      title: ExecutorDetails
+      description: >
+        Упрощённое представление заказа для таблицы в кабинете исполнителя.
+        Соответствует колонкам: ID заказа, статус, услуга, стоимость, дата создания.
+      required: [id, status, title, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: ID заказа
+        status:
+          type: string
+          description: Текущий статус заказа
+        title:
+          type: string
+          description: ???????? ??????
+        totalPrice:
+          type: number
+          nullable: true
+          description: Стоимость услуг (итоговая или рассчитанная)
+        createdAt:
+          type: string
+          format: date-time
+          description: Дата создания заказа
+        complexity:
+          type: string
+          nullable: true
+          enum: [LOW, MEDIUM, HIGH]
+          description: Сложность заказа
+        address:
+          type: string
+          nullable: true
+        departmentCode:
+          type: string
+          nullable: true
+          description: Отдел, к которому относится заказ (LEGAL, MASTERS, SUPPORT)
+
     ExecutorOrderDetails:
+      type: object
+      description: >
+        Полный контекст заказа на странице исполнителя: общая инфа, документы, визуализация, история.
       properties:
         order:
           $ref: '#/components/schemas/Order'
         files:
-          anyOf:
-          - items:
-              $ref: '#/components/schemas/OrderFile'
-            type: array
-          - type: 'null'
-          title: Files
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderFile'
         planOriginal:
-          anyOf:
-          - $ref: '#/components/schemas/OrderPlanVersion'
-          - type: 'null'
+          $ref: '#/components/schemas/OrderPlanVersion'
         planModified:
-          anyOf:
-          - $ref: '#/components/schemas/OrderPlanVersion'
-          - type: 'null'
+          $ref: '#/components/schemas/OrderPlanVersion'
         statusHistory:
+          type: array
           items:
             $ref: '#/components/schemas/OrderStatusHistoryItem'
-          type: array
-          title: Statushistory
         client:
-          anyOf:
-          - $ref: '#/components/schemas/User'
-          - type: 'null'
+          $ref: '#/components/schemas/User'
         executorAssignment:
-          anyOf:
-          - type: object
-          - type: 'null'
-          title: Executorassignment
-      type: object
-      required:
-      - order
-      title: ExecutorOrderDetails
-    ExecutorOrderListItem:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        status:
-          type: string
-          title: Status
-        serviceTitle:
-          type: string
-          title: Servicetitle
-        totalPrice:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Totalprice
-        createdAt:
-          type: string
-          format: date-time
-          title: Createdat
-        complexity:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Complexity
-        address:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Address
-        departmentCode:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Departmentcode
-      type: object
-      required:
-      - id
-      - status
-      - serviceTitle
-      - createdAt
-      title: ExecutorOrderListItem
-    ExecutorScheduleVisitRequest:
-      properties:
-        startTime:
-          type: string
-          format: date-time
-          title: Starttime
-        endTime:
-          type: string
-          format: date-time
-          title: Endtime
-        location:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Location
-      type: object
-      required:
-      - startTime
-      - endTime
-      title: ExecutorScheduleVisitRequest
-    HTTPValidationError:
-      properties:
-        detail:
-          items:
-            $ref: '#/components/schemas/ValidationError'
-          type: array
-          title: Detail
-      type: object
-      title: HTTPValidationError
-    HouseTypeCreate:
-      properties:
-        code:
-          type: string
-          title: Code
-        name:
-          type: string
-          title: Name
-        priceCoef:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Pricecoef
-          default: 1.0
-      type: object
-      required:
-      - code
-      - name
-      title: HouseTypeCreate
-    HouseTypeRead:
-      properties:
-        code:
-          type: string
-          title: Code
-        name:
-          type: string
-          title: Name
-        priceCoef:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Pricecoef
-          default: 1.0
-      type: object
-      required:
-      - code
-      - name
-      title: HouseTypeRead
-    HouseTypeUpdate:
-      properties:
-        name:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Name
-        priceCoef:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Pricecoef
-      type: object
-      title: HouseTypeUpdate
-    LabelElement:
-      properties:
-        id:
-          type: string
-          title: Id
-        type:
-          type: string
-          enum:
-          - label
-          const: label
-          title: Type
-          default: label
-        text:
-          type: string
-          title: Text
-        geometry:
-          $ref: '#/components/schemas/PointGeometry'
-      type: object
-      required:
-      - id
-      - text
-      - geometry
-      title: LabelElement
-    LoginRequest:
-      properties:
-        email:
-          type: string
-          format: email
-          title: Email
-        password:
-          type: string
-          title: Password
-      type: object
-      required:
-      - email
-      - password
-      title: LoginRequest
-    Order:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        clientId:
-          type: string
-          format: uuid
-          title: Clientid
-        serviceCode:
-          type: integer
-          title: Servicecode
-        status:
-          $ref: '#/components/schemas/OrderStatus'
-        title:
-          type: string
-          title: Title
-        description:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Description
-        address:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Address
-        districtCode:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Districtcode
-        houseTypeCode:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Housetypecode
-        complexity:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Complexity
-        calculatorInput:
-          anyOf:
-          - type: object
-          - type: 'null'
-          title: Calculatorinput
-        estimatedPrice:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Estimatedprice
-        totalPrice:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Totalprice
-        currentDepartmentCode:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Currentdepartmentcode
-        aiDecisionStatus:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Aidecisionstatus
-        aiDecisionSummary:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Aidecisionsummary
-        plannedVisitAt:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Plannedvisitat
-        completedAt:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Completedat
-        createdAt:
-          type: string
-          format: date-time
-          title: Createdat
-        updatedAt:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Updatedat
-      type: object
-      required:
-      - id
-      - clientId
-      - serviceCode
-      - status
-      - title
-      - createdAt
-      title: Order
-    OrderChatMessage:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        chatId:
-          type: string
-          format: uuid
-          title: Chatid
-        orderId:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Orderid
-        senderId:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Senderid
-        senderType:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Sendertype
-        messageText:
-          type: string
-          title: Messagetext
-        meta:
-          anyOf:
-          - type: object
-          - type: 'null'
-          title: Meta
-        createdAt:
-          type: string
-          format: date-time
-          title: Createdat
-      type: object
-      required:
-      - id
-      - chatId
-      - messageText
-      - createdAt
-      title: OrderChatMessage
-    OrderFile:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        orderId:
-          type: string
-          format: uuid
-          title: Orderid
-        senderId:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Senderid
-        filename:
-          type: string
-          title: Filename
-        path:
-          type: string
-          title: Path
-      type: object
-      required:
-      - id
-      - orderId
-      - filename
-      - path
-      title: OrderFile
-    OrderPlanVersion:
-      properties:
-        id:
-          type: string
-          format: uuid
-          title: Id
-        orderId:
-          type: string
-          format: uuid
-          title: Orderid
-        versionType:
-          type: string
-          title: Versiontype
-        plan:
-          $ref: '#/components/schemas/Plan-Output'
-      type: object
-      required:
-      - id
-      - orderId
-      - versionType
-      - plan
-      title: OrderPlanVersion
-    OrderStatus:
-      type: string
-      enum:
-      - DRAFT
-      - SUBMITTED
-      - EXECUTOR_ASSIGNED
-      - VISIT_SCHEDULED
-      - DOCUMENTS_IN_PROGRESS
-      - COMPLETED
-      - CANCELLED
-      - REJECTED
-      title: OrderStatus
+          type: object
+          nullable: true
+          properties:
+            executorId:
+              type: string
+              format: uuid
+            status:
+              type: string
+              enum: [ASSIGNED, ACCEPTED, DECLINED, COMPLETED]
+            assignedAt:
+              type: string
+              format: date-time
+            assignedByUserId:
+              type: string
+              format: uuid
+              nullable: true
+
     OrderStatusHistoryItem:
+      type: object
+      description: Запись об изменении статуса заказа
+      required: [status, changedAt]
       properties:
         oldStatus:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Oldstatus
+          type: string
+          nullable: true
         status:
           type: string
-          title: Status
+          description: Новый статус
         changedByUserId:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Changedbyuserid
+          type: string
+          format: uuid
+          nullable: true
         changedAt:
           type: string
           format: date-time
-          title: Changedat
         comment:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Comment
-      type: object
-      required:
-      - status
-      - changedAt
-      title: OrderStatusHistoryItem
-    Plan-Input:
-      properties:
-        meta:
-          $ref: '#/components/schemas/PlanMeta'
-        elements:
-          items:
-            anyOf:
-            - $ref: '#/components/schemas/WallElement'
-            - $ref: '#/components/schemas/ZoneElement'
-            - $ref: '#/components/schemas/DoorElement'
-            - $ref: '#/components/schemas/WindowElement'
-            - $ref: '#/components/schemas/LabelElement'
-          type: array
-          title: Elements
-      type: object
-      required:
-      - meta
-      - elements
-      title: Plan
-    Plan-Output:
-      properties:
-        meta:
-          $ref: '#/components/schemas/PlanMeta'
-        elements:
-          items:
-            anyOf:
-            - $ref: '#/components/schemas/WallElement'
-            - $ref: '#/components/schemas/ZoneElement'
-            - $ref: '#/components/schemas/DoorElement'
-            - $ref: '#/components/schemas/WindowElement'
-            - $ref: '#/components/schemas/LabelElement'
-          type: array
-          title: Elements
-      type: object
-      required:
-      - meta
-      - elements
-      title: Plan
-    PlanBackground:
-      properties:
-        file_id:
           type: string
-          title: File Id
-        opacity:
-          type: number
-          maximum: 1.0
-          minimum: 0.0
-          title: Opacity
+          nullable: true
+
+    ExecutorCalendarEvent:
       type: object
-      required:
-      - file_id
-      - opacity
-      title: PlanBackground
-    PlanMeta:
+      required: [id, executorId, startTime, endTime]
       properties:
-        width:
-          type: number
-          minimum: 0.0
-          title: Width
-        height:
-          type: number
-          minimum: 0.0
-          title: Height
-        unit:
+        id:
           type: string
-          enum:
-          - px
-          const: px
-          title: Unit
-        scale:
-          anyOf:
-          - $ref: '#/components/schemas/PlanScale'
-          - type: 'null'
-        background:
-          anyOf:
-          - $ref: '#/components/schemas/PlanBackground'
-          - type: 'null'
-      type: object
-      required:
-      - width
-      - height
-      - unit
-      title: PlanMeta
-    PlanScale:
-      properties:
-        px_per_meter:
-          type: number
-          exclusiveMinimum: 0.0
-          title: Px Per Meter
-      type: object
-      required:
-      - px_per_meter
-      title: PlanScale
-    PointGeometry:
-      properties:
-        kind:
-          type: string
-          enum:
-          - point
-          const: point
-          title: Kind
-          default: point
-        x:
-          type: number
-          title: X
-        y:
-          type: number
-          title: Y
-      type: object
-      required:
-      - x
-      - y
-      title: PointGeometry
-    PolygonGeometry:
-      properties:
-        kind:
-          type: string
-          enum:
-          - polygon
-          const: polygon
-          title: Kind
-          default: polygon
-        points:
-          items:
-            type: number
-          type: array
-          minItems: 6
-          title: Points
-      type: object
-      required:
-      - points
-      title: PolygonGeometry
-    RegisterClientRequest:
-      properties:
-        email:
-          type: string
-          format: email
-          title: Email
-        password:
-          type: string
-          minLength: 6
-          title: Password
-        fullName:
-          type: string
-          title: Fullname
-        phone:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Phone
-        is_admin:
-          type: boolean
-          title: Is Admin
-          default: false
-      type: object
-      required:
-      - email
-      - password
-      - fullName
-      title: RegisterClientRequest
-    RegisterExecutorRequest:
-      properties:
-        email:
-          type: string
-          format: email
-          title: Email
-        password:
-          type: string
-          title: Password
-        fullName:
-          type: string
-          title: Fullname
-        phone:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Phone
-        departmentCode:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Departmentcode
-        experienceYears:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Experienceyears
-        isAdmin:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Isadmin
-      type: object
-      required:
-      - email
-      - password
-      - fullName
-      title: RegisterExecutorRequest
-    SavePlanChangesRequest:
-      properties:
-        versionType:
-          type: string
-          title: Versiontype
-        plan:
-          $ref: '#/components/schemas/Plan-Input'
-      type: object
-      required:
-      - versionType
-      - plan
-      title: SavePlanChangesRequest
-    ScheduleVisitRequest:
-      properties:
+          format: uuid
         executorId:
           type: string
           format: uuid
-          title: Executorid
+        orderId:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
         startTime:
           type: string
           format: date-time
-          title: Starttime
         endTime:
           type: string
           format: date-time
-          title: Endtime
         location:
           type: string
-          title: Location
+          nullable: true
+        status:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    AssignExecutorRequest:
       type: object
-      required:
-      - executorId
-      - startTime
-      - endTime
-      - location
-      title: ScheduleVisitRequest
-    ScheduleVisitUpdateRequest:
+      required: [executorId]
       properties:
         executorId:
-          anyOf:
-          - type: string
-            format: uuid
-          - type: 'null'
-          title: Executorid
-        startTime:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Starttime
-        endTime:
-          anyOf:
-          - type: string
-            format: date-time
-          - type: 'null'
-          title: Endtime
-        status:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Status
-      type: object
-      title: ScheduleVisitUpdateRequest
-    SegmentGeometry:
-      properties:
-        kind:
-          type: string
-          enum:
-          - segment
-          const: segment
-          title: Kind
-          default: segment
-        points:
-          items:
-            type: number
-          type: array
-          minItems: 4
-          title: Points
-      type: object
-      required:
-      - points
-      title: SegmentGeometry
-    ServiceCreate:
-      properties:
-        code:
-          type: integer
-          title: Code
-        title:
-          type: string
-          title: Title
-        description:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Description
-        departmentCode:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Departmentcode
-        basePrice:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Baseprice
-        baseDurationDays:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Basedurationdays
-        requiredDocs:
-          anyOf:
-          - type: object
-          - type: 'null'
-          title: Requireddocs
-        isActive:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Isactive
-          default: true
-      type: object
-      required:
-      - code
-      - title
-      title: ServiceCreate
-    ServiceRead:
-      properties:
-        code:
-          type: integer
-          title: Code
-        title:
-          type: string
-          title: Title
-        description:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Description
-        departmentCode:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Departmentcode
-        basePrice:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Baseprice
-        baseDurationDays:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Basedurationdays
-        requiredDocs:
-          anyOf:
-          - type: object
-          - type: 'null'
-          title: Requireddocs
-        isActive:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Isactive
-          default: true
-      type: object
-      required:
-      - code
-      - title
-      title: ServiceRead
-    ServiceUpdate:
-      properties:
-        title:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Title
-        description:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Description
-        departmentCode:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Departmentcode
-        basePrice:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Baseprice
-        baseDurationDays:
-          anyOf:
-          - type: integer
-          - type: 'null'
-          title: Basedurationdays
-        requiredDocs:
-          anyOf:
-          - type: object
-          - type: 'null'
-          title: Requireddocs
-        isActive:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Isactive
-      type: object
-      title: ServiceUpdate
-    UpdateOrderRequest:
-      properties:
-        title:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Title
-        description:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Description
-        address:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Address
-        districtCode:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Districtcode
-        houseTypeCode:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Housetypecode
-        calculatorInput:
-          anyOf:
-          - type: object
-          - type: 'null'
-          title: Calculatorinput
-      type: object
-      title: UpdateOrderRequest
-    UpdateUserRequest:
-      properties:
-        fullName:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Fullname
-        phone:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Phone
-        isAdmin:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Isadmin
-      type: object
-      title: UpdateUserRequest
-    User:
-      properties:
-        id:
           type: string
           format: uuid
-          title: Id
+
+    ScheduleVisitRequest:
+      type: object
+      required: [executorId, startTime, endTime, location]
+      properties:
+        executorId:
+          type: string
+          format: uuid
+        startTime:
+          type: string
+          format: date-time
+        endTime:
+          type: string
+          format: date-time
+        location:
+          type: string
+
+    ScheduleVisitUpdateRequest:
+      type: object
+      properties:
+        executorId:
+          type: string
+          format: uuid
+          nullable: true
+        startTime:
+          type: string
+          format: date-time
+          nullable: true
+        endTime:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          nullable: true
+
+    District:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        priceCoef:
+          type: number
+          nullable: true
+
+    HouseType:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        priceCoef:
+          type: number
+          nullable: true
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        isAdmin:
+          type: boolean
+          
+    AdminCreateExecutorRequest:
+      type: object
+      required: [email, password, fullName]
+      properties:
         email:
           type: string
           format: email
-          title: Email
+          description: Email исполнителя (для логина)
+        password:
+          type: string
+          description: Пароль для входа исполнителя
         fullName:
           type: string
-          title: Fullname
+          description: ФИО исполнителя
         phone:
-          anyOf:
-          - type: string
-          - type: 'null'
-          title: Phone
+          type: string
+          nullable: true
+        departmentCode:
+          type: string
+          nullable: true
+          description: Код отдела, к которому относится исполнитель (например, MASTERS)
+        experienceYears:
+          type: integer
+          nullable: true
+          description: Стаж исполнителя в годах
         isAdmin:
           type: boolean
-          title: Isadmin
+          nullable: true
+          description: >
+            Сделать ли пользователя админом. Для обычных исполнителей — false или не передавать.
+
+    ExecutorDetails:
       type: object
-      required:
-      - id
-      - email
-      - fullName
-      - isAdmin
-      title: User
-    ValidationError:
+      description: Информация об исполнителе, возвращаемая после создания админом
       properties:
-        loc:
-          items:
-            anyOf:
-            - type: string
-            - type: integer
-          type: array
-          title: Location
-        msg:
-          type: string
-          title: Message
-        type:
-          type: string
-          title: Error Type
-      type: object
-      required:
-      - loc
-      - msg
-      - type
-      title: ValidationError
-    WallElement:
-      properties:
-        id:
-          type: string
-          title: Id
-        type:
-          type: string
-          enum:
-          - wall
-          const: wall
-          title: Type
-          default: wall
-        role:
-          type: string
-          enum:
-          - EXISTING
-          - TO_DELETE
-          - NEW
-          - MODIFIED
-          title: Role
-        loadBearing:
-          anyOf:
-          - type: boolean
-          - type: 'null'
-          title: Loadbearing
-        thickness:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Thickness
-        geometry:
-          $ref: '#/components/schemas/SegmentGeometry'
-      type: object
-      required:
-      - id
-      - role
-      - geometry
-      title: WallElement
-    WindowElement:
-      properties:
-        id:
-          type: string
-          title: Id
-        type:
-          type: string
-          enum:
-          - window
-          const: window
-          title: Type
-          default: window
-        role:
-          type: string
-          enum:
-          - EXISTING
-          - TO_DELETE
-          - NEW
-          - MODIFIED
-          title: Role
-        windowType:
-          type: string
-          enum:
-          - STANDARD
-          - BALCONY_DOOR
-          - PANORAMIC
-          - ROOF
-          - OTHER
-          title: Windowtype
-          default: STANDARD
-        sillHeight_m:
-          anyOf:
-          - type: number
-          - type: 'null'
-          title: Sillheight M
-        geometry:
-          $ref: '#/components/schemas/SegmentGeometry'
-      type: object
-      required:
-      - id
-      - role
-      - geometry
-      title: WindowElement
-    ZoneElement:
-      properties:
-        id:
-          type: string
-          title: Id
-        type:
-          type: string
-          enum:
-          - zone
-          const: zone
-          title: Type
-          default: zone
-        zoneType:
-          type: string
-          enum:
-          - wet
-          - living_room
-          - dining_room
-          - kitchen
-          - entrance_hall
-          - bathroom
-          - laundry_room
-          - bedroom
-          - kids_room
-          - wardrobe
-          - home_office
-          - balcony
-          - veranda
-          - loggia
-          title: Zonetype
-        relatedTo:
-          anyOf:
-          - items:
+        user:
+          $ref: '#/components/schemas/User'
+        executorProfile:
+          type: object
+          nullable: true
+          properties:
+            departmentCode:
               type: string
-            type: array
-          - type: 'null'
-          title: Relatedto
-        geometry:
-          $ref: '#/components/schemas/PolygonGeometry'
-      type: object
-      required:
-      - id
-      - zoneType
-      - geometry
-      title: ZoneElement
-  securitySchemes:
-    HTTPBearer:
-      type: http
-      scheme: bearer
+              nullable: true
+            experienceYears:
+              type: integer
+              nullable: true

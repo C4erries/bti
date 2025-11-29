@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.directory import Department, District, HouseType, Service
+from app.models.directory import Department, District, HouseType
 from app.schemas.directory import (
     DepartmentCreate,
     DepartmentUpdate,
@@ -9,8 +9,6 @@ from app.schemas.directory import (
     DistrictUpdate,
     HouseTypeCreate,
     HouseTypeUpdate,
-    ServiceCreate,
-    ServiceUpdate,
 )
 
 
@@ -32,40 +30,6 @@ def upsert_department(db: Session, data: DepartmentCreate | DepartmentUpdate, co
 
 def list_departments(db: Session) -> list[Department]:
     return list(db.scalars(select(Department)))
-
-
-def upsert_service(db: Session, data: ServiceCreate | ServiceUpdate, code: str | None = None) -> Service:
-    svc_code = code or getattr(data, "code", None)
-    if svc_code is None:
-        raise ValueError("Service code is required")
-    service = db.get(Service, svc_code) or Service(code=svc_code)
-    if getattr(data, "title", None) is not None:
-        service.title = data.title
-    description = getattr(data, "description", None)
-    if description is not None:
-        service.description = description
-    if hasattr(data, "base_price") and data.base_price is not None:
-        service.base_price = data.base_price
-    if hasattr(data, "department_code") and data.department_code is not None:
-        service.department_code = data.department_code
-    if hasattr(data, "base_duration_days") and data.base_duration_days is not None:
-        service.base_duration_days = data.base_duration_days
-    if hasattr(data, "required_docs") and data.required_docs is not None:
-        service.required_docs = data.required_docs
-    if hasattr(data, "is_active") and data.is_active is not None:
-        service.is_active = data.is_active
-    db.add(service)
-    db.commit()
-    db.refresh(service)
-    return service
-
-
-def list_services(db: Session) -> list[Service]:
-    return list(db.scalars(select(Service)))
-
-
-def get_service(db: Session, code: int) -> Service | None:
-    return db.get(Service, code)
 
 
 def upsert_district(db: Session, data: DistrictCreate | DistrictUpdate, code: str | None = None) -> District:

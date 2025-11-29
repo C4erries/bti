@@ -20,7 +20,7 @@ def get_or_create_order_chat(db: Session, order: Order, client: User) -> ChatThr
     chat = db.scalar(select(ChatThread).where(ChatThread.order_id == order.id))
     if chat:
         return chat
-    payload = CreateChatRequest(serviceCode=order.service_code, title=order.title, orderId=order.id)
+    payload = CreateChatRequest(title=order.title, orderId=order.id)
     return create_chat(db, client=client, payload=payload)
 
 
@@ -32,24 +32,17 @@ def list_client_chats(db: Session, client_id: uuid.UUID) -> list[ChatThread]:
     )
 
 
-def _resolve_title(db: Session, service_code: int | None, title: str | None) -> str:
+def _resolve_title(title: str | None) -> str:
     if title:
         return title
-    if service_code:
-        from app.models.directory import Service
-
-        svc = db.get(Service, service_code)
-        if svc:
-            return f"Помощь по услуге {svc.title}"
-    return "Чат с поддержкой"
+    return "??? ?? ??????"
 
 
 def create_chat(db: Session, client: User, payload: CreateChatRequest, order: Order | None = None) -> ChatThread:
-    title = _resolve_title(db, payload.service_code, payload.title)
+    title = _resolve_title(payload.title)
     chat = ChatThread(
         client_id=client.id,
         order_id=payload.order_id or (order.id if order else None),
-        service_code=payload.service_code,
         title=title,
     )
     db.add(chat)

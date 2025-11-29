@@ -12,40 +12,10 @@ from app.schemas.directory import (
     HouseTypeCreate,
     HouseTypeRead,
     HouseTypeUpdate,
-    ServiceCreate,
-    ServiceRead,
-    ServiceUpdate,
 )
 from app.services import directory_service
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
-
-
-@router.get("/services", response_model=list[ServiceRead])
-def list_services(db: Session = Depends(get_db_session), admin=Depends(get_current_admin)):
-    services = directory_service.list_services(db)
-    return [ServiceRead.model_validate(s) for s in services]
-
-
-@router.post("/services", response_model=ServiceRead)
-def create_service(
-    data: ServiceCreate,
-    db: Session = Depends(get_db_session),
-    admin=Depends(get_current_admin),
-):
-    service = directory_service.upsert_service(db, data)
-    return ServiceRead.model_validate(service)
-
-
-@router.patch("/services/{code}", response_model=ServiceRead)
-def update_service(
-    code: int,
-    data: ServiceUpdate,
-    db: Session = Depends(get_db_session),
-    admin=Depends(get_current_admin),
-):
-    service = directory_service.upsert_service(db, data, code=code)
-    return ServiceRead.model_validate(service)
 
 
 @router.get("/departments", response_model=list[DepartmentRead])

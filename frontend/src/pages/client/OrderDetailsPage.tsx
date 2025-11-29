@@ -236,7 +236,7 @@ const ClientOrderDetailsPage = () => {
             <div className="space-y-2 text-sm">
               <div className="flex flex-wrap gap-2">
                 <span className={badgeClass}>Статус: {order.status}</span>
-                <span className={badgeClass}>Услуга: {order.serviceTitle || order.serviceCode}</span>
+                <span className={badgeClass}>Услуга: {order.title}</span>
               </div>
               <p className="font-semibold">{order.title}</p>
               <p>{order.description}</p>

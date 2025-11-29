@@ -1,0 +1,305 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OrderPlanVersion",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "orderId", "versionType", "plan", "createdAt"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "UUID версии плана"
+    },
+    "orderId": {
+      "type": "string",
+      "description": "UUID заказа"
+    },
+    "versionType": {
+      "type": "string",
+      "enum": ["ORIGINAL", "MODIFIED"],
+      "description": "Тип версии плана"
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["meta", "elements"],
+      "properties": {
+        "meta": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height", "unit"],
+          "properties": {
+            "width": {
+              "type": "number",
+              "minimum": 0
+            },
+            "height": {
+              "type": "number",
+              "minimum": 0
+            },
+            "unit": {
+              "type": "string",
+              "enum": ["px"]
+            },
+            "scale": {
+              "type": ["object", "null"],
+              "additionalProperties": false,
+              "required": ["px_per_meter"],
+              "properties": {
+                "px_per_meter": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              }
+            },
+            "background": {
+              "type": ["object", "null"],
+              "additionalProperties": false,
+              "required": ["file_id", "opacity"],
+              "properties": {
+                "file_id": {
+                  "type": "string"
+                },
+                "opacity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              }
+            },
+            "ceiling_height_m": {
+              "type": "number",
+              "minimum": 1.8,
+              "maximum": 5
+            }
+          }
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "type", "geometry"],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "description": "Тип элемента (wall, zone, label и т.п.)"
+              },
+              "role": {
+                "type": "string",
+                "enum": ["EXISTING", "TO_DELETE", "NEW", "MODIFIED"]
+              },
+              "loadBearing": {
+                "type": ["boolean", "null"]
+              },
+              "thickness": {
+                "type": ["number", "null"]
+              },
+              "zoneType": {
+                "type": "string"
+              },
+              "relatedTo": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "selected": {
+                "type": "boolean",
+                "default": false
+              },
+              "geometry": {
+                "oneOf": [
+                  { "$ref": "#/definitions/WallGeometry" },
+                  { "$ref": "#/definitions/PolygonGeometry" },
+                  { "$ref": "#/definitions/PointGeometry" }
+                ]
+              }
+            },
+            "additionalProperties": true
+          }
+        },
+        "objects3d": {
+          "type": "array",
+          "description": "3D-объекты (стул, стол, кровать, окно, дверь)",
+          "items": {
+            "$ref": "#/definitions/Object3D"
+          }
+        }
+      }
+    },
+    "comment": {
+      "type": ["string", "null"]
+    },
+    "createdById": {
+      "type": ["string", "null"]
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "definitions": {
+    "WallGeometry": {
+      "title": "WallGeometry",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "points"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "segment"
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 4,
+          "maxItems": 4,
+          "description": "[x1, y1, x2, y2] в пикселях"
+        },
+        "openings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Opening"
+          },
+          "description": "Проёмы (двери/окна) в этой стене"
+        }
+      }
+    },
+    "Opening": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "from_m", "to_m", "bottom_m", "top_m"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["door", "window", "arch", "custom"]
+        },
+        "from_m": {
+          "type": "number",
+          "minimum": 0
+        },
+        "to_m": {
+          "type": "number",
+          "minimum": 0
+        },
+        "bottom_m": {
+          "type": "number",
+          "minimum": 0
+        },
+        "top_m": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "PolygonGeometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "points"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "polygon"
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 6,
+          "description": "[x1, y1, x2, y2, ..., xn, yn] в пикселях"
+        }
+      }
+    },
+    "PointGeometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "x", "y"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "point"
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      }
+    },
+    "Object3D": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "type", "position"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["chair", "table", "bed", "window", "door"]
+        },
+        "position": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["x", "y", "z"],
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "z": { "type": "number" }
+          }
+        },
+        "size": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["x", "y", "z"],
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "z": { "type": "number" }
+          }
+        },
+        "rotation": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "x": {
+              "type": "number",
+              "default": 0
+            },
+            "y": {
+              "type": "number",
+              "default": 0
+            },
+            "z": {
+              "type": "number",
+              "default": 0
+            }
+          }
+        },
+        "wallId": {
+          "type": ["string", "null"]
+        },
+        "zoneId": {
+          "type": ["string", "null"]
+        },
+        "selected": {
+          "type": "boolean",
+          "default": false
+        },
+        "meta": {
+          "type": ["object", "null"],
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}

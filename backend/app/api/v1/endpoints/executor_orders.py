@@ -139,7 +139,7 @@ def list_executor_orders(
         ExecutorOrderListItem(
             id=o.id,
             status=o.status.value,
-            serviceTitle=o.service.title if o.service else "",
+            title=o.title,
             totalPrice=o.total_price,
             createdAt=o.created_at,
             complexity=o.complexity,
