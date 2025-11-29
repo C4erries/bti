@@ -113,9 +113,13 @@ def get_order(
         # Получаем историю статусов безопасно
         status_history = []
         try:
-            status_history = [OrderStatusHistoryItem.model_validate(h) for h in (getattr(order, 'status_history', []) or [])]
+            # Используем функцию get_status_history вместо прямого доступа к relationship
+            history_list = order_service.get_status_history(db, order_id)
+            status_history = [OrderStatusHistoryItem.model_validate(h) for h in history_list]
         except Exception as e:
+            import traceback
             print(f"Error processing status_history: {e}")
+            print(traceback.format_exc())
         
         # Преобразуем планы в OrderPlanVersion если они есть
         plan_original_version = OrderPlanVersion.model_validate(plan_original) if plan_original else None
@@ -185,8 +189,18 @@ def list_status_history(
     current_user=Depends(get_current_user),
 ) -> list[OrderStatusHistoryItem]:
     _ensure_executor(current_user)
-    history = order_service.get_status_history(db, order_id)
-    return [OrderStatusHistoryItem.model_validate(h) for h in history]
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    try:
+        history = order_service.get_status_history(db, order_id)
+        return [OrderStatusHistoryItem.model_validate(h) for h in history]
+    except Exception as e:
+        import traceback
+        print(f"Error in list_status_history: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error retrieving status history: {str(e)}")
 
 
 @router.get("/orders/{order_id}/available-slots", response_model=list[AvailableSlot])

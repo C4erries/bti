@@ -490,8 +490,15 @@ def get_status_history(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     _ensure_ownership(order, current_user.id)
-    history = order_service.get_status_history(db, order_id)
-    return [OrderStatusHistoryItem.model_validate(h) for h in history]
+    
+    try:
+        history = order_service.get_status_history(db, order_id)
+        return [OrderStatusHistoryItem.model_validate(h) for h in history]
+    except Exception as e:
+        import traceback
+        print(f"Error in get_status_history (client): {e}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error retrieving status history: {str(e)}")
 
 
 

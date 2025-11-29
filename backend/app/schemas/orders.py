@@ -131,10 +131,12 @@ class AiAnalysis(BaseModel):
 
 
 class OrderStatusHistoryItem(BaseModel):
-    old_status: str | None = Field(default=None, alias="oldStatus")
+    id: uuid.UUID
+    order_id: uuid.UUID = Field(alias="orderId")
     status: str
-    changed_by_user_id: uuid.UUID | None = Field(default=None, alias="changedByUserId")
-    changed_at: datetime = Field(alias="changedAt")
+    changed_by_id: uuid.UUID | None = Field(default=None, alias="changedByUserId")
+    changed_by: dict | None = Field(default=None, alias="changedBy", description="Информация о пользователе, изменившем статус")
+    created_at: datetime = Field(alias="changedAt")
     comment: str | None = None
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)

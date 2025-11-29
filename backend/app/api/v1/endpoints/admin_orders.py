@@ -226,7 +226,10 @@ def get_order(
         # Обрабатываем историю статусов
         status_history_list = []
         try:
-            status_history_list = [OrderStatusHistoryItem.model_validate(h) for h in details.get("statusHistory", [])]
+            # Получаем историю статусов через функцию для надежности
+            from app.services.order_service import get_status_history
+            history = get_status_history(db, order_id)
+            status_history_list = [OrderStatusHistoryItem.model_validate(h) for h in history]
         except Exception as e:
             import traceback
             print(f"Error validating status history: {e}")
