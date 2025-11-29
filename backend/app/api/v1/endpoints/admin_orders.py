@@ -229,7 +229,26 @@ def get_order(
             # Получаем историю статусов через функцию для надежности
             from app.services.order_service import get_status_history
             history = get_status_history(db, order_id)
-            status_history_list = [OrderStatusHistoryItem.model_validate(h) for h in history]
+            # Преобразуем каждую запись истории с обработкой changed_by
+            for h in history:
+                try:
+                    history_item = OrderStatusHistoryItem.model_validate(h)
+                    # Если есть changed_by, добавляем информацию о пользователе
+                    if h.changed_by:
+                        from app.schemas.user import User
+                        history_item.changed_by = User.model_validate(h.changed_by).model_dump()
+                    status_history_list.append(history_item)
+                except Exception as e:
+                    print(f"Error validating history item {h.id}: {e}")
+                    # Создаем упрощенную версию без changed_by
+                    status_history_list.append(OrderStatusHistoryItem(
+                        id=h.id,
+                        orderId=h.order_id,
+                        status=h.status.value if hasattr(h.status, 'value') else str(h.status),
+                        changedByUserId=h.changed_by_id,
+                        changedAt=h.created_at,
+                        comment=h.comment
+                    ))
         except Exception as e:
             import traceback
             print(f"Error validating status history: {e}")
