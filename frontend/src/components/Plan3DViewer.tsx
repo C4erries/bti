@@ -264,11 +264,6 @@ const SceneContent = ({
     ];
     allPoints.push(...corners);
     
-    if (allPoints.length === 0) {
-      // Если нет элементов, центрируем по размерам плана
-      return { x: width / 2, z: -height / 2 };
-    }
-    
     // Вычисляем bounding box
     let minX = Infinity, maxX = -Infinity;
     let minZ = Infinity, maxZ = -Infinity;
@@ -279,6 +274,16 @@ const SceneContent = ({
       minZ = Math.min(minZ, pt.z);
       maxZ = Math.max(maxZ, pt.z);
     });
+    
+    // Если нет точек, используем размеры плана
+    if (allPoints.length === 0 || !isFinite(minX)) {
+      const planCenter2D = from2DTo3D(
+        safeNumber(plan.meta?.width, 0) / 2,
+        safeNumber(plan.meta?.height, 0) / 2,
+        pxPerMeter
+      );
+      return { x: planCenter2D.x, z: planCenter2D.z };
+    }
     
     // Центр bounding box
     return {
