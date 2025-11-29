@@ -27,34 +27,34 @@ const ExecutorOrdersPage = () => {
       setOrders(data);
       setMessage(null);
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : '?? ??????? ????????? ??????');
+      setMessage(err instanceof Error ? err.message : 'Не удалось загрузить заказы');
     }
   };
 
   return (
     <div className={cardClass}>
       <div className="flex items-center justify-between">
-        <h3 className={sectionTitleClass}>?????? ???????????</h3>
+        <h3 className={sectionTitleClass}>Мои заказы</h3>
         <button className={subtleButtonClass} onClick={() => void loadOrders()}>
-          ????????
+          Обновить
         </button>
       </div>
       <div className="mt-3 grid gap-3 lg:grid-cols-2">
         <label className="text-sm text-slate-700">
-          ?????? (NEW/IN_PROGRESS/DONE)
+          Статус (NEW/IN_PROGRESS/DONE)
           <select
             className={`${inputClass} mt-1`}
             value={filters.status}
             onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}
           >
-            <option value="">?? ???????</option>
+            <option value="">Все статусы</option>
             <option value="NEW">NEW</option>
             <option value="IN_PROGRESS">IN_PROGRESS</option>
             <option value="DONE">DONE</option>
           </select>
         </label>
         <label className="text-sm text-slate-700">
-          ??? ??????
+          Отдел
           <input
             className={`${inputClass} mt-1`}
             value={filters.departmentCode}
@@ -69,10 +69,10 @@ const ExecutorOrdersPage = () => {
           <thead className="bg-slate-100 text-left">
             <tr>
               <th className="px-3 py-2">ID</th>
-              <th className="px-3 py-2">??????</th>
-              <th className="px-3 py-2">????????</th>
-              <th className="px-3 py-2">?????????</th>
-              <th className="px-3 py-2">??????</th>
+              <th className="px-3 py-2">Статус</th>
+              <th className="px-3 py-2">Название</th>
+              <th className="px-3 py-2">Цена</th>
+              <th className="px-3 py-2">Дата</th>
             </tr>
           </thead>
           <tbody>

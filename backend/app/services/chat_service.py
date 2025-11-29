@@ -35,7 +35,7 @@ def list_client_chats(db: Session, client_id: uuid.UUID) -> list[ChatThread]:
 def _resolve_title(title: str | None) -> str:
     if title:
         return title
-    return "??? ?? ??????"
+    return "Новый чат"
 
 
 def create_chat(db: Session, client: User, payload: CreateChatRequest, order: Order | None = None) -> ChatThread:
