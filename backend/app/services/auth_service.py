@@ -8,12 +8,40 @@ from app.services import user_service
 
 
 def login(db: Session, data: LoginRequest) -> AuthTokenResponse:
+    """Логин пользователя с детальной обработкой ошибок"""
     try:
-        user = user_service.verify_user_credentials(db, data.email, data.password)
+        # Проверяем, существует ли пользователь
+        user = user_service.get_user_by_email(db, data.email)
         if not user:
+            print(f"DEBUG LOGIN: User not found for email: {data.email}")
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password"
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="Invalid email or password"
             )
+        
+        print(f"DEBUG LOGIN: User found: {user.email}, is_blocked: {user.is_blocked}")
+        
+        # Проверяем блокировку
+        if user.is_blocked:
+            print(f"DEBUG LOGIN: User is blocked: {user.email}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User account is blocked"
+            )
+        
+        # Проверяем пароль
+        from app.core.security import verify_password
+        password_valid = verify_password(data.password, user.password_hash)
+        print(f"DEBUG LOGIN: Password verification result: {password_valid}")
+        
+        if not password_valid:
+            print(f"DEBUG LOGIN: Password verification failed for user: {user.email}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password"
+            )
+        
+        print(f"DEBUG LOGIN: Login successful for user: {user.email}")
         token = create_access_token(str(user.id))
         return AuthTokenResponse(accessToken=token, tokenType="Bearer")
     except HTTPException:

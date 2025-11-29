@@ -117,14 +117,18 @@ def ensure_client_profile(db: Session, user: User) -> ClientProfile:
 
 
 def verify_user_credentials(db: Session, email: str, password: str) -> User | None:
+    """Проверка учетных данных пользователя. Возвращает None если неверные данные или пользователь заблокирован."""
     user = get_user_by_email(db, email)
     if not user:
         return None
-    if not verify_password(password, user.password_hash):
-        return None
-    # Проверка блокировки
+    
+    # Проверка блокировки должна быть ДО проверки пароля для безопасности
     if user.is_blocked:
         return None
+    
+    if not verify_password(password, user.password_hash):
+        return None
+    
     return user
 
 
