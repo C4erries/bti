@@ -1,7 +1,7 @@
 import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber';
 import { Grid, OrbitControls, Stats, TransformControls } from '@react-three/drei';
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { Box3, DoubleSide, Group, Mesh, Shape, Vector3 } from 'three';
+import { Box3, DoubleSide, Group, Mesh, Shape, Texture, TextureLoader, Vector3 } from 'three';
 import type { OrbitControls as OrbitControlsImpl, TransformControls as TransformControlsImpl } from 'three-stdlib';
 import type { PlanGeometry, PlanObject3D } from '../types';
 import {
@@ -11,7 +11,7 @@ import {
   getPxPerMeter,
   safeNumber,
 } from '../utils/plan3d';
-import type { ZonePolygon3D } from '../utils/plan3d';
+import type { ZonePolygon3D, WallSegment3D } from '../utils/plan3d';
 import { buttonClass, cardClass, inputClass, subtleButtonClass } from './ui';
 
 export interface Plan3DViewerProps {
@@ -22,7 +22,36 @@ export interface Plan3DViewerProps {
 const DEFAULT_WALL_HEIGHT = 2.7;
 const DEFAULT_OBJECT_SIZE = { x: 2, y: 0.8, z: 1 };
 
-const zoneColorByType = (zoneType?: string) => {
+const useOptionalTexture = (textureUrl?: string | null) => {
+  const [texture, setTexture] = useState<Texture | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (!textureUrl) {
+      setTexture(null);
+      return;
+    }
+    const loader = new TextureLoader();
+    loader.load(
+      textureUrl,
+      (loaded) => {
+        if (active) setTexture(loaded);
+      },
+      undefined,
+      () => {
+        if (active) setTexture(null);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [textureUrl]);
+
+  return texture;
+};
+
+const zoneColorByType = (zoneType?: string, styleColor?: string | null) => {
+  if (styleColor) return styleColor;
   switch (zoneType) {
     case 'kitchen':
       return '#f59e0b';
@@ -55,22 +84,30 @@ const Ground = ({ width, height }: { width: number; height: number }) => (
   </group>
 );
 
+const WallMesh = ({ wall, height }: { wall: WallSegment3D; height: number }) => {
+  const texture = useOptionalTexture(wall.style?.textureUrl ?? null);
+  const color = wall.style?.color ?? (wall.loadBearing ? '#475569' : '#9ca3af');
+
+  return (
+    <mesh
+      position={[wall.center.x, height / 2, wall.center.z]}
+      rotation={[0, wall.angle, 0]}
+      castShadow
+      receiveShadow
+    >
+      <boxGeometry args={[wall.length, height, wall.thickness]} />
+      <meshStandardMaterial color={color} map={texture ?? undefined} />
+    </mesh>
+  );
+};
+
 const Walls = ({ plan }: { plan: PlanGeometry }) => {
   const walls = useMemo(() => buildWallSegments(plan), [plan]);
   const wallHeight = plan.meta?.ceiling_height_m ?? DEFAULT_WALL_HEIGHT;
   return (
     <group>
       {walls.map((wall) => (
-        <mesh
-          key={wall.id}
-          position={[wall.center.x, wallHeight / 2, wall.center.z]}
-          rotation={[0, wall.angle, 0]}
-          castShadow
-          receiveShadow
-        >
-          <boxGeometry args={[wall.length, wallHeight, wall.thickness]} />
-          <meshStandardMaterial color={wall.loadBearing ? '#475569' : '#9ca3af'} />
-        </mesh>
+        <WallMesh key={wall.id} wall={wall} height={wallHeight} />
       ))}
     </group>
   );
@@ -85,12 +122,15 @@ const ZoneMesh = ({ zone }: { zone: ZonePolygon3D }) => {
     });
     return s;
   }, [zone]);
+  const texture = useOptionalTexture(zone.style?.textureUrl ?? null);
+  const color = zoneColorByType(zone.zoneType, zone.style?.color ?? null);
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]} receiveShadow>
       <shapeGeometry args={[shape]} />
       <meshStandardMaterial
-        color={zoneColorByType(zone.zoneType)}
+        color={color}
+        map={texture ?? undefined}
         transparent
         opacity={0.75}
         side={DoubleSide}

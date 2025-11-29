@@ -113,6 +113,7 @@
       - `wall` (стены, несущие/ненесущие, толщина, роли EXISTING/TO_DELETE/NEW/MODIFIED);
       - `zone` (функциональные зоны, связь с элементами);
       - далее — двери, окна, подписи (по мере внедрения);
+      - `style` (опционально): цвет HEX или ссылка на текстуру для отрисовки стены/зоны.
     - `objects3d`: опциональный список 3D‑объектов для визуализации.
     - Contract: структура `Plan` совпадает с `3Dmodel_schema.json` (meta width/height/unit px, опциональные scale/background и ceiling_height_m, сегменты/полигоны/точки с openings у стен, objects3d с position/rotation/size и wallId/zoneId).
 

@@ -29,6 +29,17 @@ class PlanMeta(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
 
+class ElementStyle(BaseModel):
+    color: str | None = Field(
+        default=None,
+        pattern=r"^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$",
+        description="HEX color (#RRGGBB or #RRGGBBAA)",
+    )
+    textureUrl: str | None = Field(default=None, alias="textureUrl")
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+
 class Opening(BaseModel):
     id: str
     type: Literal["door", "window", "arch", "custom"]
@@ -75,6 +86,7 @@ class PlanElementBase(BaseModel):
     zoneType: str | None = Field(default=None, alias="zoneType")
     relatedTo: list[str] | None = Field(default=None, alias="relatedTo")
     selected: bool = False
+    style: ElementStyle | None = None
 
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 

@@ -12,6 +12,7 @@ from app.api.v1.endpoints import (
     executor_calendar,
     executor_orders,
     pricing,
+    textures,
     public,
     websocket_chat,
 )
@@ -30,3 +31,4 @@ api_router.include_router(admin_ai_rules.router)
 api_router.include_router(admin_error_logs.router)
 api_router.include_router(websocket_chat.router)
 api_router.include_router(pricing.router)
+api_router.include_router(textures.router)

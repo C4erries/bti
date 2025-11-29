@@ -13,6 +13,7 @@ from app.models.order import (
 from app.models.chat import ChatThread
 from app.models.ai_rule import AIRule, RiskType
 from app.models.error_log import ErrorLog, ErrorType, ErrorSeverity, ErrorStatus
+from app.models.texture import Texture
 
 __all__ = [
     "Base",
@@ -36,4 +37,5 @@ __all__ = [
     "ErrorType",
     "ErrorSeverity",
     "ErrorStatus",
+    "Texture",
 ]

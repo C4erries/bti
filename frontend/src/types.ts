@@ -70,6 +70,11 @@ export interface PlanBackground {
   opacity: number; // 0..1
 }
 
+export interface ElementStyle {
+  color?: string;
+  textureUrl?: string | null;
+}
+
 export interface PlanMeta {
   width: number;
   height: number;
@@ -116,6 +121,7 @@ export interface PlanElementBase {
   zoneType?: string;
   relatedTo?: string[] | null;
   selected?: boolean;
+  style?: ElementStyle | null;
   geometry: Geometry;
   // Extra props are allowed by schema (e.g., label text)
   [key: string]: unknown;
