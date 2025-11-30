@@ -18,6 +18,7 @@ from app.schemas.orders import (
     SavePlanChangesRequest,
     ParsePlanResultRequest,
     AiAnalysis,
+    AiRisk,
     RecognizePlanRequest,
 )
 from app.schemas.plan_responses import (
@@ -28,11 +29,7 @@ from app.schemas.plan_responses import (
 )
 from app.models.order import OrderFile as OrderFileModel
 from app.core.config import settings
-from app.services import order_service, ai_analysis_service, plan_recognition_service
-from app.services.kafka_client import send as kafka_send
-from app.schemas.ai_messages import OrderAnalysisRequestMessage, OrderAnalysisPayload
-from app.services.kafka_client import send as kafka_send
-from app.schemas.ai_messages import OrderAnalysisRequestMessage, OrderAnalysisPayload
+from app.services import order_service, plan_recognition_service, ai_integration_service, ai_rule_service
 
 class HTTPValidationError(BaseModel):
     detail: list[dict] | None = None
@@ -43,6 +40,120 @@ router = APIRouter(prefix="/client", tags=["Client"])
 def _ensure_ownership(order, user_id: uuid.UUID):
     if order.client_id != user_id:
         raise HTTPException(status_code=403, detail="Not your order")
+
+
+def _map_rule_to_rag_dict(rule) -> dict:
+    return {
+        "id": str(rule.id),
+        "title": rule.name,
+        "description": rule.description,
+        "content": rule.trigger_condition,
+        "regulation_reference": getattr(rule, "risk_zone", None),
+        "risk_type": rule.risk_type.value if hasattr(rule, "risk_type") and rule.risk_type else None,
+        "severity": getattr(rule, "severity", None),
+        "tags": rule.tags or [],
+    }
+
+
+def _severity_from_label(label: str | None) -> int | None:
+    if not label:
+        return None
+    mapping = {"low": 1, "medium": 2, "high": 4, "critical": 5}
+    return mapping.get(label.lower())
+
+
+def _map_ai_risk(risk_dict: dict) -> AiRisk:
+    severity = risk_dict.get("severity")
+    if severity is None:
+        severity = _severity_from_label(risk_dict.get("severity_str"))
+    risk_type = risk_dict.get("type") or "TECHNICAL"
+    description = risk_dict.get("description") or "Risk details are not available"
+    return AiRisk(
+        type=risk_type,
+        description=description,
+        severity=severity,
+        zone=risk_dict.get("zone"),
+    )
+
+
+def _derive_decision_status(risks: list[AiRisk]) -> str:
+    if any(r.severity and r.severity >= 4 for r in risks):
+        return "FORBIDDEN"
+    if any(r.severity and r.severity >= 3 for r in risks):
+        return "NEEDS_APPROVAL"
+    if risks:
+        return "ALLOWED_WITH_WARNINGS"
+    return "ALLOWED"
+
+
+def _collect_order_context(order) -> dict:
+    status_value = order.status.value if hasattr(order.status, "value") else str(order.status)
+    context = {
+        "order_id": str(order.id),
+        "order_title": order.title,
+        "order_status": status_value,
+    }
+    if order.district_code:
+        context["district_code"] = order.district_code
+    if order.house_type_code:
+        context["house_type_code"] = order.house_type_code
+    if order.address:
+        context["address"] = order.address
+    if getattr(order, "area", None):
+        context["area"] = order.area
+    return context
+
+
+def _get_latest_plan_data(db: Session, order_id: uuid.UUID) -> dict | None:
+    versions = order_service.get_plan_versions(db, order_id)
+    if not versions:
+        return None
+    latest = versions[-1]
+    return latest.plan
+
+
+async def _build_ai_analysis(db: Session, order, persist: bool = False) -> AiAnalysis:
+    ai_rules = [_map_rule_to_rag_dict(rule) for rule in ai_rule_service.list_rules(db, is_enabled=True)]
+    plan_data = _get_latest_plan_data(db, order.id)
+    order_context = _collect_order_context(order)
+
+    summary, risks_dicts, alternatives = await ai_integration_service.analyze_plan_with_ai(
+        plan_data=plan_data,
+        order_context=order_context,
+        ai_rules=ai_rules,
+        articles=[],
+        user_profile=None,
+    )
+
+    ai_risks = [_map_ai_risk(r) for r in risks_dicts] if risks_dicts else []
+    decision_status = _derive_decision_status(ai_risks)
+    if summary in ["AI analysis not available", "Plan data not available for analysis"] and not ai_risks:
+        decision_status = order.ai_decision_status or "UNKNOWN"
+    if order.ai_decision_status and summary in ["AI analysis not available", "Plan data not available for analysis"]:
+        decision_status = order.ai_decision_status
+    if order.ai_decision_summary and summary in ["AI analysis not available", "Plan data not available for analysis"]:
+        summary = order.ai_decision_summary
+    raw_response = {"risks": risks_dicts, "alternatives": alternatives} if risks_dicts or alternatives else None
+
+    analysis = AiAnalysis(
+        id=uuid.uuid4(),
+        orderId=order.id,
+        decisionStatus=decision_status,
+        summary=summary,
+        risks=ai_risks or None,
+        legalWarnings=None,
+        financialWarnings=None,
+        rawResponse=raw_response,
+    )
+
+    if persist:
+        order.ai_decision_status = decision_status
+        order.ai_decision_summary = summary
+        db.add(order)
+        db.commit()
+        db.refresh(order)
+
+    return analysis
 
 
 @router.get("/orders", response_model=list[Order])
@@ -530,7 +641,7 @@ def get_status_history(
 
 
 @router.post("/orders/{order_id}/ai/analyze", response_model=AiAnalysis)
-def trigger_ai_analyze(
+async def trigger_ai_analyze(
     order_id: uuid.UUID,
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
@@ -540,26 +651,8 @@ def trigger_ai_analyze(
         raise HTTPException(status_code=404, detail="Order not found")
     _ensure_ownership(order, current_user.id)
 
-    request_id = uuid.uuid4()
-    plan_versions = order_service.get_plan_versions(db, order_id)
-    plan_schema = None
-    if plan_versions:
-        plan_schema = OrderPlanVersion.model_validate(plan_versions[-1])
-
-    analysis_model = ai_analysis_service.create_pending(db, order_id, request_id)
-    message = OrderAnalysisRequestMessage(
-        requestId=request_id,
-        orderId=order_id,
-        planVersionId=plan_schema.id if plan_schema else None,
-        createdAt=datetime.utcnow(),
-        payload=OrderAnalysisPayload(
-            order=Order.model_validate(order),
-            plan=plan_schema,
-            chatHistory=None,
-        ),
-    )
-    kafka_send(settings.kafka_ai_analysis_request_topic, message.model_dump(by_alias=True))
-    return ai_analysis_service.to_schema(analysis_model)
+    analysis = await _build_ai_analysis(db, order, persist=True)
+    return analysis
 
 
 @router.get("/orders/{order_id}/files/{file_id}")
@@ -589,7 +682,7 @@ def download_file(
 
 
 @router.get("/orders/{order_id}/ai/analysis", response_model=AiAnalysis)
-def get_ai_analysis(
+async def get_ai_analysis(
     order_id: uuid.UUID,
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
@@ -598,10 +691,8 @@ def get_ai_analysis(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     _ensure_ownership(order, current_user.id)
-    analysis_model = ai_analysis_service.get_latest_by_order(db, order_id)
-    if not analysis_model:
-        raise HTTPException(status_code=404, detail="AI analysis not found")
-    return ai_analysis_service.to_schema(analysis_model)
+    analysis = await _build_ai_analysis(db, order, persist=False)
+    return analysis
 
 
 @router.post(

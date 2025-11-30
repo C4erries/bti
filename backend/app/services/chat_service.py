@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.chat import ChatThread
 from app.models.order import ExecutorAssignment, Order, OrderChatMessage
 from app.models.user import User
@@ -33,9 +34,21 @@ def list_client_chats(db: Session, client_id: uuid.UUID) -> list[ChatThread]:
 
 
 def _resolve_title(title: str | None) -> str:
-    if title:
-        return title
-    return "Новый чат"
+    return title or "New chat"
+
+
+def _map_rule_to_rag_dict(rule) -> dict:
+    """Convert AIRule entity to a dict expected by the RAG layer."""
+    return {
+        "id": str(rule.id),
+        "title": rule.name,
+        "description": rule.description,
+        "content": rule.trigger_condition,
+        "regulation_reference": getattr(rule, "risk_zone", None),
+        "risk_type": rule.risk_type.value if hasattr(rule, "risk_type") and rule.risk_type else None,
+        "severity": getattr(rule, "severity", None),
+        "tags": rule.tags or [],
+    }
 
 
 def create_chat(db: Session, client: User, payload: CreateChatRequest, order: Order | None = None) -> ChatThread:
@@ -93,43 +106,41 @@ def add_message(
 
 
 async def delegate_to_ai(db: Session, chat: ChatThread, user_message: ChatMessageCreate) -> OrderChatMessage | None:
-    """Делегирование сообщения AI для обработки."""
+    """Delegate a chat message to the AI assistant with RAG context."""
     try:
-        from app.services import ai_integration_service
-        
-        # Получаем контекст заказа если есть
-        order_context = {}
+        from app.services import ai_integration_service, ai_rule_service, order_service
+
+        order_context: dict = {}
         plan_data = None
         if chat.order_id:
-            from app.models.order import Order
             order = db.get(Order, chat.order_id)
             if order:
+                order_status = order.status.value if hasattr(order.status, "value") else str(order.status)
                 order_context = {
                     "order_id": str(order.id),
                     "order_title": order.title,
-                    "order_status": order.status.value if hasattr(order.status, 'value') else str(order.status),
+                    "order_status": order_status,
+                    "district_code": order.district_code,
+                    "house_type_code": order.house_type_code,
                 }
-                # Получаем последнюю версию плана если есть
-                from app.services import order_service
                 versions = order_service.get_plan_versions(db, order.id)
                 if versions:
-                    latest_version = versions[-1]
-                    plan_data = latest_version.plan
-        
-        # Получаем историю чата
+                    plan_data = versions[-1].plan
+
         history = list_chat_messages(db, chat)
-        chat_history = []
-        for msg in history[-10:]:  # Последние 10 сообщений
-            chat_history.append({
+        history_limit = settings.chat_max_history or 10
+        chat_history = [
+            {
                 "role": "user" if msg.sender_type in ["CLIENT", "EXECUTOR"] else "assistant",
-                "content": msg.message_text
-            })
-        
-        # Получаем правила AI и статьи (можно расширить позже)
-        ai_rules = []
-        articles = []
-        
-        # Обрабатываем через AI
+                "content": msg.message_text,
+            }
+            for msg in history[-history_limit:]
+        ]
+
+        rules = ai_rule_service.list_rules(db, is_enabled=True)
+        ai_rules = [_map_rule_to_rag_dict(rule) for rule in rules]
+        articles: list[dict] = []
+
         ai_response = await ai_integration_service.process_chat_with_ai(
             message=user_message.message,
             plan_data=plan_data,
@@ -137,16 +148,17 @@ async def delegate_to_ai(db: Session, chat: ChatThread, user_message: ChatMessag
             chat_history=chat_history,
             ai_rules=ai_rules,
             articles=articles,
-            user_profile=None
+            user_profile=None,
         )
-        
-        return add_message(db, chat, sender=None, sender_type="AI", text=ai_response)
+
+        ai_text = ai_response if ai_response else "AI did not return a reply."
+        return add_message(db, chat, sender=None, sender_type="AI", text=ai_text)
     except Exception as e:
-        # Fallback на заглушку при ошибке
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"AI chat error: {e}")
-        ai_text = f"AI stub: {user_message.message}"
+        ai_text = "AI assistant is temporarily unavailable. Please try again later."
         return add_message(db, chat, sender=None, sender_type="AI", text=ai_text)
 
 

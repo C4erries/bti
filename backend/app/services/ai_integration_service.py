@@ -127,7 +127,7 @@ except Exception as e:
 
 
 async def analyze_plan_with_ai(
-    plan_data: Dict[str, Any],
+    plan_data: Optional[Dict[str, Any]],
     order_context: Dict[str, Any],
     ai_rules: List[Dict[str, Any]],
     articles: List[Dict[str, Any]],
@@ -148,6 +148,12 @@ async def analyze_plan_with_ai(
     """
     if not AI_MODULES_AVAILABLE or not analyze_plan:
         return "AI analysis not available", [], None
+    if plan_data is None:
+        return "Plan data not available for analysis", [], None
+    
+    order_context = order_context or {}
+    ai_rules = ai_rules or []
+    articles = articles or []
     
     # Переменные окружения уже загружены при импорте модуля из ai/app/.env
     # Устанавливаем переменные из backend настроек (если не установлены)
@@ -156,6 +162,8 @@ async def analyze_plan_with_ai(
     
     # Конвертируем план в формат AI
     kanva_plan = _convert_backend_plan_to_ai_format(plan_data)
+    if kanva_plan is None:
+        return "Plan data not available for analysis", [], None
     
     # Конвертируем профиль пользователя
     ai_user_profile = None
