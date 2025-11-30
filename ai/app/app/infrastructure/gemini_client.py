@@ -84,7 +84,12 @@ async def generate_text(
         response_text = await asyncio.to_thread(_generate)
         return response_text
     except Exception as e:
-        raise RuntimeError(f"Не удалось получить текст из ответа Gemini API: {e}")
+        # Не раскрываем детали ошибки, чтобы не логировать API ключи
+        error_str = str(e)
+        # Проверяем, не содержит ли ошибка информацию об API ключе
+        if "API" in error_str or "key" in error_str.lower() or "403" in error_str or "PERMISSION_DENIED" in error_str:
+            raise RuntimeError("Не удалось получить ответ от Gemini API. Проверьте настройки API ключа.")
+        raise RuntimeError(f"Не удалось получить текст из ответа Gemini API: {error_str}")
 
 
 # Список моделей по убыванию качества для fallback
