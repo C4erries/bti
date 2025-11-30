@@ -26,6 +26,11 @@ AI_MODULES_AVAILABLE = False
 analyze_plan = None
 process_chat_message = None
 
+# Глобальные переменные для AI моделей (будут установлены при загрузке)
+KanvaPlan = None
+AIChatMessage = None
+UserProfile = None
+
 def _load_ai_modules():
     """Загружает AI модули, добавляя пути в sys.path только внутри этой функции."""
     global AI_MODULES_AVAILABLE, analyze_plan, process_chat_message
@@ -98,15 +103,22 @@ def _load_ai_modules():
             except Exception:
                 process_chat_message = None
         
-        # Импортируем модели
+        # Импортируем модели и сохраняем их глобально
         models_path = _ai_app_path / "models"
+        global KanvaPlan, AIChatMessage, UserProfile
         if models_path.exists():
             try:
                 from models.plan import KanvaPlan
                 from models.chat import ChatMessage as AIChatMessage
                 from models.user import UserProfile
             except ImportError:
-                pass
+                KanvaPlan = None
+                AIChatMessage = None
+                UserProfile = None
+        else:
+            KanvaPlan = None
+            AIChatMessage = None
+            UserProfile = None
         
         AI_MODULES_AVAILABLE = (analyze_plan is not None or 
                                 process_chat_message is not None)
@@ -241,7 +253,7 @@ async def process_chat_with_ai(
     
     # Конвертируем план
     kanva_plan = None
-    if plan_data:
+    if plan_data and KanvaPlan is not None:
         kanva_plan = _convert_backend_plan_to_ai_format(plan_data)
     
     # Конвертируем историю чата
