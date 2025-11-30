@@ -72,26 +72,34 @@ async def generate_text(
     def _generate():
         from google.genai import types
         
-        # Подготавливаем инструменты, если они есть
-        tools_config = None
-        if tools:
-            # Преобразуем инструменты в формат Gemini
-            function_declarations = []
-            for tool in tools:
-                function_declarations.append(
-                    types.FunctionDeclaration(
-                        name=tool["name"],
-                        description=tool.get("description", ""),
-                        parameters=tool.get("parameters", {})
-                    )
-                )
-            tools_config = types.Tool(function_declarations=function_declarations)
+        # Подготавливаем параметры для generate_content
+        generate_kwargs = {
+            "model": model,
+            "contents": full_prompt,
+        }
         
-        response = client.models.generate_content(
-            model=model,
-            contents=full_prompt,
-            tools=tools_config,
-        )
+        # Добавляем инструменты только если они есть и поддерживаются
+        if tools:
+            try:
+                # Преобразуем инструменты в формат Gemini
+                function_declarations = []
+                for tool in tools:
+                    function_declarations.append(
+                        types.FunctionDeclaration(
+                            name=tool["name"],
+                            description=tool.get("description", ""),
+                            parameters=tool.get("parameters", {})
+                        )
+                    )
+                tools_config = types.Tool(function_declarations=function_declarations)
+                # Пробуем добавить tools, если API поддерживает
+                # Если нет - просто не передаем этот параметр
+                generate_kwargs["tools"] = tools_config
+            except Exception:
+                # Если tools не поддерживаются, просто не передаем их
+                pass
+        
+        response = client.models.generate_content(**generate_kwargs)
         return response.text
     
     try:
