@@ -35,24 +35,31 @@ try:
         sys.path.insert(0, str(ai_app_path))
     
     # Импортируем модули (только Gemini AI - анализ и чат)
-    # Используем importlib с правильной настройкой путей для относительных импортов
+    # Добавляем ai/app/app в sys.path ПЕРЕД импортом, чтобы app был доступен как пакет
     ai_app_app_path = ai_app_path / "app"
+    if str(ai_app_app_path) not in sys.path:
+        sys.path.insert(0, str(ai_app_app_path))
+    # Добавляем ai/app для импорта models
+    if str(ai_app_path) not in sys.path:
+        sys.path.insert(0, str(ai_app_path))
     
     # Импортируем анализ
     analysis_path = ai_app_app_path / "services" / "analysis" / "analyzer.py"
     if analysis_path.exists():
         try:
+            # Создаем пакеты в sys.modules для корректной работы импортов
+            import types
+            if "app" not in sys.modules:
+                sys.modules["app"] = types.ModuleType("app")
+            if "app.services" not in sys.modules:
+                sys.modules["app.services"] = types.ModuleType("app.services")
+            if "app.services.analysis" not in sys.modules:
+                sys.modules["app.services.analysis"] = types.ModuleType("app.services.analysis")
+            
             spec = importlib.util.spec_from_file_location("app.services.analysis.analyzer", analysis_path)
             analyzer_module = importlib.util.module_from_spec(spec)
-            # Устанавливаем правильный __package__ и пути для относительных импортов
             analyzer_module.__package__ = "app.services.analysis"
             analyzer_module.__name__ = "app.services.analysis.analyzer"
-            # Добавляем ai/app/app в sys.path для импортов внутри модуля
-            if str(ai_app_app_path) not in sys.path:
-                sys.path.insert(0, str(ai_app_app_path))
-            # Добавляем ai/app для импорта models
-            if str(ai_app_path) not in sys.path:
-                sys.path.insert(0, str(ai_app_path))
             sys.modules["app.services.analysis.analyzer"] = analyzer_module
             spec.loader.exec_module(analyzer_module)
             analyze_plan = analyzer_module.analyze_plan
@@ -60,23 +67,27 @@ try:
             import logging
             logger = logging.getLogger(__name__)
             logger.warning(f"Could not import analyze_plan: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
             analyze_plan = None
     
     # Импортируем чат
     chat_path = ai_app_app_path / "services" / "chat" / "chatbot.py"
     if chat_path.exists():
         try:
+            # Создаем пакеты в sys.modules для корректной работы импортов
+            import types
+            if "app" not in sys.modules:
+                sys.modules["app"] = types.ModuleType("app")
+            if "app.services" not in sys.modules:
+                sys.modules["app.services"] = types.ModuleType("app.services")
+            if "app.services.chat" not in sys.modules:
+                sys.modules["app.services.chat"] = types.ModuleType("app.services.chat")
+            
             spec = importlib.util.spec_from_file_location("app.services.chat.chatbot", chat_path)
             chatbot_module = importlib.util.module_from_spec(spec)
-            # Устанавливаем правильный __package__ и пути для относительных импортов
             chatbot_module.__package__ = "app.services.chat"
             chatbot_module.__name__ = "app.services.chat.chatbot"
-            # Добавляем ai/app/app в sys.path для импортов внутри модуля
-            if str(ai_app_app_path) not in sys.path:
-                sys.path.insert(0, str(ai_app_app_path))
-            # Добавляем ai/app для импорта models
-            if str(ai_app_path) not in sys.path:
-                sys.path.insert(0, str(ai_app_path))
             sys.modules["app.services.chat.chatbot"] = chatbot_module
             spec.loader.exec_module(chatbot_module)
             process_chat_message = chatbot_module.process_chat_message
