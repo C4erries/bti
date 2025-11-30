@@ -8,14 +8,10 @@ services:
     volumes:
       - ./backend:/app
     environment:
-      # AI настройки
+      # AI настройки (только Gemini)
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
-      - CUBICASA_API_URL=http://cubicasa:8000
-      - CUBICASA_TIMEOUT=${CUBICASA_TIMEOUT:-300.0}
     restart: unless-stopped
-    depends_on:
-      - cubicasa
 
   frontend:
     build:
@@ -30,25 +26,3 @@ services:
       - ./frontend:/app
     depends_on:
       - backend
-
-  cubicasa:
-    build:
-      context: ./ai/CubiCasa-docker
-      dockerfile: Dockerfile
-    ports:
-      - '8001:8000'
-    volumes:
-      - ./ai/CubiCasa-docker:/app
-    environment:
-      - MODEL_WEIGHTS_PATH=model_best_val_loss_var.pkl
-      - DEVICE=${CUBICASA_DEVICE:-cpu}
-      - PORT=8000
-    restart: unless-stopped
-    # Для GPU используйте:
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]

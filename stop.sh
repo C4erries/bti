@@ -85,18 +85,6 @@ if [ -f /tmp/bti-frontend.pid ]; then
     rm -f /tmp/bti-frontend.pid
 fi
 
-# Остановка CubiCasa API контейнера
-echo ""
-echo -e "${YELLOW}Проверка CubiCasa API контейнера...${NC}"
-if docker ps -a | grep -q "bti-cubicasa"; then
-    echo -e "${YELLOW}  Остановка CubiCasa API...${NC}"
-    docker stop bti-cubicasa 2>/dev/null
-    docker rm bti-cubicasa 2>/dev/null
-    echo -e "${GREEN}✓ CubiCasa API остановлен${NC}"
-else
-    echo -e "${GREEN}✓ CubiCasa API не запущен${NC}"
-fi
-
 # Остановка Docker контейнеров (если запущены)
 echo ""
 echo -e "${YELLOW}Проверка Docker контейнеров...${NC}"
@@ -152,21 +140,6 @@ if [ ! -z "$PORT_5173" ]; then
     echo -e "${GREEN}✓ Порт 5173 освобожден${NC}"
 else
     echo -e "${GREEN}✓ Порт 5173 свободен${NC}"
-fi
-
-# Порт 8001 (CubiCasa API)
-PORT_8001=$(lsof -ti:8001 2>/dev/null)
-if [ ! -z "$PORT_8001" ]; then
-    echo -e "${YELLOW}  Освобождение порта 8001...${NC}"
-    kill $PORT_8001 2>/dev/null
-    sleep 1
-    REMAINING_8001=$(lsof -ti:8001 2>/dev/null)
-    if [ ! -z "$REMAINING_8001" ]; then
-        kill -9 $REMAINING_8001 2>/dev/null
-    fi
-    echo -e "${GREEN}✓ Порт 8001 освобожден${NC}"
-else
-    echo -e "${GREEN}✓ Порт 8001 свободен${NC}"
 fi
 
 echo ""

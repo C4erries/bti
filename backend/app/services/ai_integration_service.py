@@ -22,10 +22,8 @@ from app.core.config import settings
 
 # Импорты AI модулей (с обработкой ошибок)
 AI_MODULES_AVAILABLE = False
-process_plan_from_image = None
 analyze_plan = None
 process_chat_message = None
-CubiCasaProcessingError = Exception
 
 try:
     # Пробуем импортировать через динамический импорт
@@ -36,16 +34,7 @@ try:
     if str(ai_app_path) not in sys.path:
         sys.path.insert(0, str(ai_app_path))
     
-    # Импортируем модули
-    plan_processing_path = ai_app_path / "app" / "services" / "plan_processing" / "__init__.py"
-    if plan_processing_path.exists():
-        spec = importlib.util.spec_from_file_location("plan_processing", plan_processing_path)
-        plan_processing = importlib.util.module_from_spec(spec)
-        sys.modules['plan_processing'] = plan_processing
-        spec.loader.exec_module(plan_processing)
-        process_plan_from_image = plan_processing.process_plan_from_image
-        CubiCasaProcessingError = plan_processing.CubiCasaProcessingError
-    
+    # Импортируем модули (только Gemini AI - анализ и чат)
     analysis_path = ai_app_path / "app" / "services" / "analysis" / "analyzer.py"
     if analysis_path.exists():
         spec = importlib.util.spec_from_file_location("analyzer", analysis_path)
@@ -73,58 +62,13 @@ try:
         except ImportError:
             pass
     
-    AI_MODULES_AVAILABLE = (process_plan_from_image is not None or 
-                            analyze_plan is not None or 
+    AI_MODULES_AVAILABLE = (analyze_plan is not None or 
                             process_chat_message is not None)
 except Exception as e:
     import logging
     logger = logging.getLogger(__name__)
     logger.warning(f"AI modules not available: {e}")
     AI_MODULES_AVAILABLE = False
-
-
-async def process_plan_image(
-    image_bytes: bytes,
-    order_id: Optional[uuid.UUID] = None,
-    version_type: str = "ORIGINAL",
-    px_per_meter: Optional[float] = None
-) -> Dict[str, Any]:
-    """
-    Обработка изображения плана через CubiCasa API.
-    
-    Args:
-        image_bytes: Байты изображения
-        order_id: ID заказа
-        version_type: Тип версии
-        px_per_meter: Пикселей на метр
-        
-    Returns:
-        Dict с результатом обработки в формате OrderPlanVersion
-        
-    Raises:
-        CubiCasaProcessingError: При ошибке обработки
-    """
-    if not AI_MODULES_AVAILABLE or not process_plan_from_image:
-        raise RuntimeError("AI modules not available")
-    
-    # Переменные окружения уже загружены при импорте модуля из ai/app/.env
-    # Устанавливаем переменные из backend настроек (если не установлены)
-    if not os.getenv("GEMINI_API_KEY") and settings.gemini_api_key:
-        os.environ["GEMINI_API_KEY"] = settings.gemini_api_key
-    os.environ.setdefault("CUBICASA_API_URL", settings.cubicasa_api_url)
-    os.environ.setdefault("CUBICASA_TIMEOUT", str(settings.cubicasa_timeout))
-    
-    order_id_str = str(order_id) if order_id else None
-    result = await process_plan_from_image(
-        image_bytes=image_bytes,
-        order_id=order_id_str,
-        version_type=version_type,
-        px_per_meter=px_per_meter,
-        cubicasa_api_url=settings.cubicasa_api_url
-    )
-    
-    # Конвертируем в формат для backend
-    return _convert_ai_plan_to_backend_format(result)
 
 
 async def analyze_plan_with_ai(
