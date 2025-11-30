@@ -35,32 +35,28 @@ try:
         sys.path.insert(0, str(ai_app_path))
     
     # Импортируем модули (только Gemini AI - анализ и чат)
-    # Используем прямой импорт через sys.path для корректной работы относительных импортов
+    # Добавляем ai/app/app в путь для корректных абсолютных импортов
+    ai_app_app_path = ai_app_path / "app"
+    if str(ai_app_app_path) not in sys.path:
+        sys.path.insert(0, str(ai_app_app_path))
+    
+    # Импортируем анализ
     try:
         from app.services.analysis.analyzer import analyze_plan
-    except ImportError:
-        # Fallback на importlib если прямой импорт не работает
-        analysis_path = ai_app_path / "app" / "services" / "analysis" / "analyzer.py"
-        if analysis_path.exists():
-            spec = importlib.util.spec_from_file_location("analyzer", analysis_path)
-            analyzer = importlib.util.module_from_spec(spec)
-            sys.modules['analyzer'] = analyzer
-            spec.loader.exec_module(analyzer)
-            analyze_plan = analyzer.analyze_plan
+    except ImportError as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Could not import analyze_plan: {e}")
+        analyze_plan = None
     
-    chat_path = ai_app_path / "app" / "services" / "chat" / "chatbot.py"
-    if chat_path.exists():
-        # Используем прямой импорт через sys.path вместо importlib
-        # чтобы относительные импорты работали корректно
-        try:
-            from app.services.chat.chatbot import process_chat_message
-        except ImportError:
-            # Fallback на importlib если прямой импорт не работает
-            spec = importlib.util.spec_from_file_location("chatbot", chat_path)
-            chatbot = importlib.util.module_from_spec(spec)
-            sys.modules['chatbot'] = chatbot
-            spec.loader.exec_module(chatbot)
-            process_chat_message = chatbot.process_chat_message
+    # Импортируем чат
+    try:
+        from app.services.chat.chatbot import process_chat_message
+    except ImportError as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Could not import process_chat_message: {e}")
+        process_chat_message = None
     
     # Импортируем модели
     models_path = ai_app_path / "models"

@@ -16,9 +16,10 @@ import sys
 from pathlib import Path
 
 # Настраиваем пути для абсолютных импортов
-ai_app_path = Path(__file__).parent.parent.parent.parent
-if str(ai_app_path) not in sys.path:
-    sys.path.insert(0, str(ai_app_path))
+# Структура: ai/app/app/... поэтому добавляем ai/app/app в путь
+ai_app_app_path = Path(__file__).parent.parent.parent
+if str(ai_app_app_path) not in sys.path:
+    sys.path.insert(0, str(ai_app_app_path))
 
 from app.infrastructure import generate_text, load_config, get_logger
 from app.services.embedding import generate_embedding, generate_embedding_for_plan, generate_embedding_for_user_profile
