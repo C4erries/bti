@@ -31,7 +31,9 @@ from app.schemas.plan_responses import (
 )
 from app.models.order import OrderFile as OrderFileModel
 from app.core.config import settings
-from app.services import order_service, plan_recognition_service, ai_integration_service, ai_rule_service
+from app.services import order_service, plan_recognition_service, ai_rule_service
+from app.services.gemini_client import generate_json
+from app.services.plan_description import summarize_plan
 
 class HTTPValidationError(BaseModel):
     detail: list[dict] | None = None
@@ -127,17 +129,25 @@ def _apply_split_to_plan_version(plan_version):
     return plan_version
 
 
-def _map_rule_to_rag_dict(rule) -> dict:
-    return {
-        "id": str(rule.id),
-        "title": rule.name,
-        "description": rule.description,
-        "content": rule.trigger_condition,
-        "regulation_reference": getattr(rule, "risk_zone", None),
-        "risk_type": rule.risk_type.value if hasattr(rule, "risk_type") and rule.risk_type else None,
-        "severity": getattr(rule, "severity", None),
-        "tags": rule.tags or [],
-    }
+def _format_rules_text(rules: list) -> str:
+    if not rules:
+        return "Правила для анализа не заданы."
+    lines = []
+    for rule in rules[:5]:
+        title = getattr(rule, "name", None) or "Правило"
+        description = getattr(rule, "description", None) or getattr(rule, "trigger_condition", "") or ""
+        risk_type = getattr(rule, "risk_type", None)
+        severity = getattr(rule, "severity", None)
+        parts = [f"- {title}: {description}"]
+        extra = []
+        if risk_type:
+            extra.append(f"тип риска {getattr(risk_type, 'value', risk_type)}")
+        if severity:
+            extra.append(f"серьезность {severity}")
+        if extra:
+            parts.append(f"({', '.join(extra)})")
+        lines.append(" ".join(parts).strip())
+    return "\n".join(lines)
 
 
 def _severity_from_label(label: str | None) -> int | None:
@@ -199,27 +209,70 @@ def _get_latest_plan_data(db: Session, order_id: uuid.UUID) -> dict | None:
 
 
 async def _build_ai_analysis(db: Session, order, persist: bool = False) -> AiAnalysis:
-    ai_rules = [_map_rule_to_rag_dict(rule) for rule in ai_rule_service.list_rules(db, is_enabled=True)]
     plan_data = _get_latest_plan_data(db, order.id)
-    order_context = _collect_order_context(order)
+    if not plan_data:
+        summary = order.ai_decision_summary or "Plan data not available for analysis"
+        decision_status = order.ai_decision_status or "UNKNOWN"
+        analysis = AiAnalysis(
+            id=uuid.uuid4(),
+            orderId=order.id,
+            decisionStatus=decision_status,
+            summary=summary,
+            risks=None,
+            legalWarnings=None,
+            financialWarnings=None,
+            rawResponse=None,
+        )
+        if persist:
+            order.ai_decision_status = decision_status
+            order.ai_decision_summary = summary
+            db.add(order)
+            db.commit()
+            db.refresh(order)
+        return analysis
 
-    summary, risks_dicts, alternatives = await ai_integration_service.analyze_plan_with_ai(
-        plan_data=plan_data,
-        order_context=order_context,
-        ai_rules=ai_rules,
-        articles=[],
-        user_profile=None,
+    rules = ai_rule_service.list_rules(db, is_enabled=True)
+    rules_text = _format_rules_text(rules)
+    order_context = _collect_order_context(order)
+    plan_description = summarize_plan(plan_data)
+
+    system_prompt = (
+        "Ты эксперт по перепланировкам и БТИ. "
+        "Анализируй план квартиры, оценивай риски и формируй структурированный вывод."
+    )
+    prompt = (
+        f"Данные заказа:\n"
+        f"ID: {order_context.get('order_id')}\n"
+        f"Статус: {order_context.get('order_status')}\n"
+        f"Тип дома: {order_context.get('house_type_code', 'не указан')}\n"
+        f"Округ: {order_context.get('district_code', 'не указан')}\n"
+        f"Адрес: {order_context.get('address', 'не указан')}\n\n"
+        f"Описание плана:\n{plan_description}\n\n"
+        f"Правила и ограничения:\n{rules_text}\n\n"
+        "Сформируй краткое резюме и список рисков по категориям "
+        "(TECHNICAL, LEGAL, FINANCIAL, OPERATIONAL). "
+        "Ответ верни строго в JSON с полями: summary (str), risks (list of objects: "
+        "type, description, severity(1-5), zone(optional))."
     )
 
+    result = await generate_json(
+        system=system_prompt,
+        prompt=prompt,
+        temperature=settings.analysis_temperature,
+    )
+
+    risks_dicts = result.get("risks") if isinstance(result, dict) else []
+    summary = result.get("summary") if isinstance(result, dict) else None
+
     ai_risks = [_map_ai_risk(r) for r in risks_dicts] if risks_dicts else []
-    decision_status = _derive_decision_status(ai_risks)
-    if summary in ["AI analysis not available", "Plan data not available for analysis"] and not ai_risks:
+    decision_status = result.get("decisionStatus") if isinstance(result, dict) else None
+    derived_status = _derive_decision_status(ai_risks)
+    if derived_status:
+        decision_status = derived_status
+    if not decision_status:
         decision_status = order.ai_decision_status or "UNKNOWN"
-    if order.ai_decision_status and summary in ["AI analysis not available", "Plan data not available for analysis"]:
-        decision_status = order.ai_decision_status
-    if order.ai_decision_summary and summary in ["AI analysis not available", "Plan data not available for analysis"]:
-        summary = order.ai_decision_summary
-    raw_response = {"risks": risks_dicts, "alternatives": alternatives} if risks_dicts or alternatives else None
+    if not summary:
+        summary = "Анализ плана не дал результатов."
 
     analysis = AiAnalysis(
         id=uuid.uuid4(),
@@ -229,7 +282,7 @@ async def _build_ai_analysis(db: Session, order, persist: bool = False) -> AiAna
         risks=ai_risks or None,
         legalWarnings=None,
         financialWarnings=None,
-        rawResponse=raw_response,
+        rawResponse=result if isinstance(result, dict) else None,
     )
 
     if persist:

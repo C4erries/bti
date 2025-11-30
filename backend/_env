@@ -1,7 +1,0 @@
-GEMINI_API_KEY=AIzaSyBO2mPQt3P-82ljlxMeCTsZtQYKK-uLUco
-EMBEDDING_MODEL=embedding-001
-GEMINI_MODEL=gemini-2.0-flash
-# CubiCasa API настройки
-CUBICASA_API_URL=http://localhost:8000
-CUBICASA_TIMEOUT=300.0
-CUBICASA_API_URL=http://localhost:8001

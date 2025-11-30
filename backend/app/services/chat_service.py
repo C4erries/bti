@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime
 
@@ -11,6 +12,8 @@ from app.models.order import ExecutorAssignment, Order, OrderChatMessage
 from app.models.user import User
 from app.schemas.chat import CreateChatRequest
 from app.schemas.orders import ChatMessageCreate
+from app.services.gemini_client import generate_text
+from app.services.plan_description import summarize_plan
 
 
 def get_chat(db: Session, chat_id: uuid.UUID) -> ChatThread | None:
@@ -35,20 +38,6 @@ def list_client_chats(db: Session, client_id: uuid.UUID) -> list[ChatThread]:
 
 def _resolve_title(title: str | None) -> str:
     return title or "New chat"
-
-
-def _map_rule_to_rag_dict(rule) -> dict:
-    """Convert AIRule entity to a dict expected by the RAG layer."""
-    return {
-        "id": str(rule.id),
-        "title": rule.name,
-        "description": rule.description,
-        "content": rule.trigger_condition,
-        "regulation_reference": getattr(rule, "risk_zone", None),
-        "risk_type": rule.risk_type.value if hasattr(rule, "risk_type") and rule.risk_type else None,
-        "severity": getattr(rule, "severity", None),
-        "tags": rule.tags or [],
-    }
 
 
 def create_chat(db: Session, client: User, payload: CreateChatRequest, order: Order | None = None) -> ChatThread:
@@ -106,65 +95,68 @@ def add_message(
 
 
 async def delegate_to_ai(db: Session, chat: ChatThread, user_message: ChatMessageCreate) -> OrderChatMessage | None:
-    """Delegate a chat message to the AI assistant with RAG context."""
+    """Delegate a chat message to Gemini using a minimal prompt."""
+    from app.services import order_service
+
+    logger = logging.getLogger(__name__)
+
+    order_context_lines: list[str] = []
+    plan_summary = None
+    if chat.order_id:
+        order = db.get(Order, chat.order_id)
+        if order:
+            status_value = order.status.value if hasattr(order.status, "value") else str(order.status)
+            order_context_lines.append(f"ID заказа: {order.id}")
+            order_context_lines.append(f"Статус: {status_value}")
+            order_context_lines.append(f"Название: {order.title}")
+            if order.address:
+                order_context_lines.append(f"Адрес: {order.address}")
+            if order.district_code:
+                order_context_lines.append(f"Округ: {order.district_code}")
+            if order.house_type_code:
+                order_context_lines.append(f"Тип дома: {order.house_type_code}")
+
+            versions = order_service.get_plan_versions(db, order.id)
+            if versions:
+                plan_summary = summarize_plan(versions[-1].plan)
+
+    history = list_chat_messages(db, chat)
+    history_limit = settings.chat_max_history or 10
+    last_messages = history[-history_limit:] if history_limit > 0 else []
+    history_lines = []
+    for msg in last_messages:
+        role = "Клиент" if msg.sender_type in ["CLIENT", "EXECUTOR"] else "Ассистент"
+        history_lines.append(f"{role}: {msg.message_text}")
+    history_text = "\n".join(history_lines) if history_lines else "История пуста."
+
+    system_prompt = (
+        "Ты помощник инженера БТИ. "
+        "Отвечай кратко и по делу, опираясь на историю чата и краткий контекст заказа. "
+        "Если данных не хватает, уточняй вопросы."
+    )
+
+    prompt_parts = []
+    if order_context_lines:
+        prompt_parts.append("Контекст заказа:\n" + "\n".join(order_context_lines))
+    if plan_summary:
+        prompt_parts.append("Описание плана:\n" + plan_summary)
+    prompt_parts.append("История чата:\n" + history_text)
+    prompt_parts.append(f"Новое сообщение пользователя:\n{user_message.message}")
+    prompt_parts.append("Сформулируй ответ ассистента.")
+    prompt = "\n\n".join(prompt_parts)
+
+    fallback_text = "Сервис помощника временно недоступен. Попробуйте позже."
+    ai_text = fallback_text
     try:
-        from app.services import ai_integration_service, ai_rule_service, order_service
-
-        order_context: dict = {}
-        plan_data = None
-        if chat.order_id:
-            order = db.get(Order, chat.order_id)
-            if order:
-                order_status = order.status.value if hasattr(order.status, "value") else str(order.status)
-                order_context = {
-                    "order_id": str(order.id),
-                    "order_title": order.title,
-                    "order_status": order_status,
-                    "district_code": order.district_code,
-                    "house_type_code": order.house_type_code,
-                }
-                versions = order_service.get_plan_versions(db, order.id)
-                if versions:
-                    plan_data = versions[-1].plan
-
-        history = list_chat_messages(db, chat)
-        history_limit = settings.chat_max_history or 10
-        chat_history = [
-            {
-                "role": "user" if msg.sender_type in ["CLIENT", "EXECUTOR"] else "assistant",
-                "content": msg.message_text,
-            }
-            for msg in history[-history_limit:]
-        ]
-
-        rules = ai_rule_service.list_rules(db, is_enabled=True)
-        ai_rules = [_map_rule_to_rag_dict(rule) for rule in rules]
-        articles: list[dict] = []
-
-        ai_response = await ai_integration_service.process_chat_with_ai(
-            message=user_message.message,
-            plan_data=plan_data,
-            order_context=order_context,
-            chat_history=chat_history,
-            ai_rules=ai_rules,
-            articles=articles,
-            user_profile=None,
+        response_text = await generate_text(
+            system=system_prompt,
+            prompt=prompt,
+            temperature=settings.chat_temperature,
         )
-
-        ai_text = ai_response if ai_response else "AI did not return a reply."
-        return add_message(db, chat, sender=None, sender_type="AI", text=ai_text)
-    except Exception as e:
-        import logging
-
-        logger = logging.getLogger(__name__)
-        # Не логируем полную ошибку, чтобы не раскрывать API ключи
-        error_msg = str(e)
-        # Убираем возможные упоминания API ключей из логов
-        if "API" in error_msg or "key" in error_msg.lower():
-            error_msg = "AI service error (details hidden for security)"
-        logger.error(f"AI chat error: {error_msg}")
-        ai_text = "AI assistant is temporarily unavailable. Please try again later."
-        return add_message(db, chat, sender=None, sender_type="AI", text=ai_text)
+        ai_text = response_text.strip() or fallback_text
+    except Exception as exc:
+        logger.error("AI chat error: %s", exc)
+    return add_message(db, chat, sender=None, sender_type="AI", text=ai_text)
 
 
 def ensure_access(chat: ChatThread, user: User, db: Session) -> None:
