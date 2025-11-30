@@ -35,21 +35,32 @@ try:
         sys.path.insert(0, str(ai_app_path))
     
     # Импортируем модули (только Gemini AI - анализ и чат)
-    analysis_path = ai_app_path / "app" / "services" / "analysis" / "analyzer.py"
-    if analysis_path.exists():
-        spec = importlib.util.spec_from_file_location("analyzer", analysis_path)
-        analyzer = importlib.util.module_from_spec(spec)
-        sys.modules['analyzer'] = analyzer
-        spec.loader.exec_module(analyzer)
-        analyze_plan = analyzer.analyze_plan
+    # Используем прямой импорт через sys.path для корректной работы относительных импортов
+    try:
+        from app.services.analysis.analyzer import analyze_plan
+    except ImportError:
+        # Fallback на importlib если прямой импорт не работает
+        analysis_path = ai_app_path / "app" / "services" / "analysis" / "analyzer.py"
+        if analysis_path.exists():
+            spec = importlib.util.spec_from_file_location("analyzer", analysis_path)
+            analyzer = importlib.util.module_from_spec(spec)
+            sys.modules['analyzer'] = analyzer
+            spec.loader.exec_module(analyzer)
+            analyze_plan = analyzer.analyze_plan
     
     chat_path = ai_app_path / "app" / "services" / "chat" / "chatbot.py"
     if chat_path.exists():
-        spec = importlib.util.spec_from_file_location("chatbot", chat_path)
-        chatbot = importlib.util.module_from_spec(spec)
-        sys.modules['chatbot'] = chatbot
-        spec.loader.exec_module(chatbot)
-        process_chat_message = chatbot.process_chat_message
+        # Используем прямой импорт через sys.path вместо importlib
+        # чтобы относительные импорты работали корректно
+        try:
+            from app.services.chat.chatbot import process_chat_message
+        except ImportError:
+            # Fallback на importlib если прямой импорт не работает
+            spec = importlib.util.spec_from_file_location("chatbot", chat_path)
+            chatbot = importlib.util.module_from_spec(spec)
+            sys.modules['chatbot'] = chatbot
+            spec.loader.exec_module(chatbot)
+            process_chat_message = chatbot.process_chat_message
     
     # Импортируем модели
     models_path = ai_app_path / "models"

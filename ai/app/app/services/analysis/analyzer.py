@@ -12,9 +12,17 @@ if str(ai_app_path) not in sys.path:
 from models.plan import KanvaPlan, WallGeometry, PolygonGeometry
 from models.risks import AiRisk
 from models.user import UserProfile
-from ...infrastructure import generate_json_with_fallback, load_config, get_logger
-from ..embedding import generate_embedding_for_plan
-from ..rag import retrieve_relevant_chunks, build_rag_index
+import sys
+from pathlib import Path
+
+# Настраиваем пути для абсолютных импортов
+ai_app_path = Path(__file__).parent.parent.parent.parent
+if str(ai_app_path) not in sys.path:
+    sys.path.insert(0, str(ai_app_path))
+
+from app.infrastructure import generate_json_with_fallback, load_config, get_logger
+from app.services.embedding import generate_embedding_for_plan
+from app.services.rag import retrieve_relevant_chunks, build_rag_index
 
 logger = get_logger("analysis")
 

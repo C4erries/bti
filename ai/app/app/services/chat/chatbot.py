@@ -12,11 +12,19 @@ if str(ai_app_path) not in sys.path:
 from models.chat import ChatMessage, ChatResponse
 from models.plan import KanvaPlan
 from models.user import UserProfile
-from ...infrastructure import generate_text, load_config, get_logger
-from ..embedding import generate_embedding, generate_embedding_for_plan, generate_embedding_for_user_profile
-from ..rag import retrieve_relevant_chunks, build_rag_index
-from ..analysis import analyze_plan
-from .tools import get_chat_tools, format_selected_elements_info
+import sys
+from pathlib import Path
+
+# Настраиваем пути для абсолютных импортов
+ai_app_path = Path(__file__).parent.parent.parent.parent
+if str(ai_app_path) not in sys.path:
+    sys.path.insert(0, str(ai_app_path))
+
+from app.infrastructure import generate_text, load_config, get_logger
+from app.services.embedding import generate_embedding, generate_embedding_for_plan, generate_embedding_for_user_profile
+from app.services.rag import retrieve_relevant_chunks, build_rag_index
+from app.services.analysis import analyze_plan
+from app.services.chat.tools import get_chat_tools, format_selected_elements_info
 
 logger = get_logger("chat")
 

@@ -1,7 +1,15 @@
 """Генерация эмбеддингов и разбиение текста на чанки."""
 
 from typing import List, Optional
-from ...infrastructure import load_config
+import sys
+from pathlib import Path
+
+# Настраиваем пути для абсолютных импортов
+ai_app_path = Path(__file__).parent.parent.parent.parent
+if str(ai_app_path) not in sys.path:
+    sys.path.insert(0, str(ai_app_path))
+
+from app.infrastructure import load_config
 import sys
 from pathlib import Path
 
@@ -12,7 +20,7 @@ if str(ai_app_path) not in sys.path:
 
 from models.plan import KanvaPlan, WallGeometry
 from models.user import UserProfile
-from .local_embedder import generate_local_embedding
+from app.services.embedding.local_embedder import generate_local_embedding
 
 
 def chunk_text(text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
