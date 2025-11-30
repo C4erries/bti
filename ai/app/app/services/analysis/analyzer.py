@@ -1,9 +1,17 @@
 """Анализ планировки и оценка рисков."""
 
 from typing import List, Dict, Any, Tuple, Optional
-from v2.models.plan import KanvaPlan, WallGeometry, PolygonGeometry
-from v2.models.risks import AiRisk
-from v2.models.user import UserProfile
+import sys
+from pathlib import Path
+
+# Добавляем путь к моделям
+ai_app_path = Path(__file__).parent.parent.parent.parent
+if str(ai_app_path) not in sys.path:
+    sys.path.insert(0, str(ai_app_path))
+
+from models.plan import KanvaPlan, WallGeometry, PolygonGeometry
+from models.risks import AiRisk
+from models.user import UserProfile
 from ...infrastructure import generate_json_with_fallback, load_config, get_logger
 from ..embedding import generate_embedding_for_plan
 from ..rag import retrieve_relevant_chunks, build_rag_index

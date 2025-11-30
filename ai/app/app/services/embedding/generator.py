@@ -2,8 +2,16 @@
 
 from typing import List, Optional
 from ...infrastructure import load_config
-from v2.models.plan import KanvaPlan, WallGeometry
-from v2.models.user import UserProfile
+import sys
+from pathlib import Path
+
+# Добавляем путь к моделям
+ai_app_path = Path(__file__).parent.parent.parent.parent
+if str(ai_app_path) not in sys.path:
+    sys.path.insert(0, str(ai_app_path))
+
+from models.plan import KanvaPlan, WallGeometry
+from models.user import UserProfile
 from .local_embedder import generate_local_embedding
 
 
