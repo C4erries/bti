@@ -90,7 +90,13 @@ try:
                     order_columns = [row[1] for row in cursor.fetchall()]
                     if 'service_code' not in order_columns:
                         print("🔄 Migrating: Adding service_code to orders table...")
-                        cursor.execute("ALTER TABLE orders ADD COLUMN service_code VARCHAR(50) DEFAULT 'default' NOT NULL")
+                        # SQLite не поддерживает добавление NOT NULL колонки без дефолта к существующей таблице
+                        # Сначала добавляем как nullable
+                        cursor.execute("ALTER TABLE orders ADD COLUMN service_code VARCHAR(50)")
+                        # Обновляем существующие записи
+                        cursor.execute("UPDATE orders SET service_code = 'default' WHERE service_code IS NULL")
+                        # Теперь делаем NOT NULL (SQLite не поддерживает напрямую, но это не критично)
+                        # Вместо этого просто убеждаемся, что все записи имеют значение
                     else:
                         # Проверяем, что поле не NULL, если оно есть
                         cursor.execute("PRAGMA table_info(orders)")

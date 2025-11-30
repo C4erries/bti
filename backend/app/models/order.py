@@ -54,7 +54,7 @@ class Order(Base):
     department_code: Mapped[str | None] = mapped_column(String(50), ForeignKey("departments.code"))
     district_code: Mapped[str | None] = mapped_column(String(50), ForeignKey("districts.code"))
     house_type_code: Mapped[str | None] = mapped_column(String(50), ForeignKey("house_types.code"))
-    service_code: Mapped[str] = mapped_column(String(50), nullable=False, default="default", server_default="'default'")
+    service_code: Mapped[str] = mapped_column(String(50), nullable=False, default="default", server_default="default")
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text)
     address: Mapped[str | None] = mapped_column(String(255))
