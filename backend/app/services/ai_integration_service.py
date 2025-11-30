@@ -7,123 +7,151 @@ from typing import Optional, Dict, Any, List
 import uuid
 from dotenv import load_dotenv
 
-# Добавляем путь к AI модулям
-project_root = Path(__file__).parent.parent.parent.parent
-ai_app_path = project_root / "ai" / "app"
-if str(ai_app_path) not in sys.path:
-    sys.path.insert(0, str(ai_app_path))
-
-# Загружаем переменные окружения из ai/app/.env если существует
-ai_env_path = ai_app_path / ".env"
-if ai_env_path.exists():
-    load_dotenv(ai_env_path)
-
 from app.core.config import settings
 
+# Пути к AI модулям (вычисляем, но НЕ добавляем в sys.path на уровне модуля)
+# чтобы не конфликтовать с backend импортами типа app.services
+_project_root = Path(__file__).parent.parent.parent.parent
+_ai_app_path = _project_root / "ai" / "app"
+_ai_app_app_path = _ai_app_path / "app"
+
+# Загружаем переменные окружения из ai/app/.env если существует
+_ai_env_path = _ai_app_path / ".env"
+if _ai_env_path.exists():
+    load_dotenv(_ai_env_path)
+
 # Импорты AI модулей (с обработкой ошибок)
+# НЕ добавляем пути в sys.path на уровне модуля, чтобы не конфликтовать с backend импортами
 AI_MODULES_AVAILABLE = False
 analyze_plan = None
 process_chat_message = None
 
-try:
-    # Пробуем импортировать через динамический импорт
-    import importlib.util
-    import sys
+# Глобальные переменные для AI моделей (будут установлены при загрузке)
+KanvaPlan = None
+AIChatMessage = None
+UserProfile = None
+
+def _load_ai_modules():
+    """Загружает AI модули, добавляя пути в sys.path только внутри этой функции."""
+    global AI_MODULES_AVAILABLE, analyze_plan, process_chat_message
     
-    # Добавляем путь к AI модулям в sys.path если еще не добавлен
-    if str(ai_app_path) not in sys.path:
-        sys.path.insert(0, str(ai_app_path))
-    
-    # Импортируем модули (только Gemini AI - анализ и чат)
-    # Добавляем ai/app/app в sys.path ПЕРЕД импортом, чтобы app был доступен как пакет
-    ai_app_app_path = ai_app_path / "app"
-    if str(ai_app_app_path) not in sys.path:
-        sys.path.insert(0, str(ai_app_app_path))
-    # Добавляем ai/app для импорта models
-    if str(ai_app_path) not in sys.path:
-        sys.path.insert(0, str(ai_app_path))
-    
-    # Загружаем все необходимые пакеты ПЕРЕД импортом модулей
-    # Это нужно для корректной работы абсолютных импортов внутри модулей
-    packages_to_load = [
-        ("app.infrastructure", ai_app_app_path / "infrastructure" / "__init__.py"),
-        ("app.services", ai_app_app_path / "services" / "__init__.py"),
-        ("app.services.embedding", ai_app_app_path / "services" / "embedding" / "__init__.py"),
-        ("app.services.rag", ai_app_app_path / "services" / "rag" / "__init__.py"),
-        ("app.services.analysis", ai_app_app_path / "services" / "analysis" / "__init__.py"),
-        ("app.services.chat", ai_app_app_path / "services" / "chat" / "__init__.py"),
-    ]
-    
-    for package_name, init_path in packages_to_load:
-        if init_path.exists():
+    try:
+        import importlib.util
+        
+        # Сохраняем текущее состояние sys.path
+        original_sys_path = sys.path.copy()
+        
+        # Добавляем пути к AI модулям в sys.path только для импорта AI модулей
+        # Используем append, чтобы backend пути проверялись первыми
+        if str(_ai_app_app_path) not in sys.path:
+            sys.path.append(str(_ai_app_app_path))
+        if str(_ai_app_path) not in sys.path:
+            sys.path.append(str(_ai_app_path))
+        
+        # Загружаем все необходимые пакеты ПЕРЕД импортом модулей
+        # НЕ создаем app.services в sys.modules, чтобы не конфликтовать с backend
+        packages_to_load = [
+            ("app.infrastructure", _ai_app_app_path / "infrastructure" / "__init__.py"),
+            # Пропускаем app.services - не создаем его в sys.modules
+            ("app.services.embedding", _ai_app_app_path / "services" / "embedding" / "__init__.py"),
+            ("app.services.rag", _ai_app_app_path / "services" / "rag" / "__init__.py"),
+            ("app.services.analysis", _ai_app_app_path / "services" / "analysis" / "__init__.py"),
+            ("app.services.chat", _ai_app_app_path / "services" / "chat" / "__init__.py"),
+        ]
+        
+        # Сохраняем существующие модули, чтобы восстановить их после
+        saved_modules = {}
+        for package_name, init_path in packages_to_load:
+            if package_name in sys.modules:
+                saved_modules[package_name] = sys.modules[package_name]
+            if init_path.exists():
+                try:
+                    spec = importlib.util.spec_from_file_location(package_name, init_path)
+                    package_module = importlib.util.module_from_spec(spec)
+                    package_module.__package__ = package_name
+                    package_module.__name__ = package_name
+                    sys.modules[package_name] = package_module
+                    spec.loader.exec_module(package_module)
+                except Exception:
+                    pass
+        
+        # Импортируем анализ
+        analysis_path = _ai_app_app_path / "services" / "analysis" / "analyzer.py"
+        if analysis_path.exists():
             try:
-                spec = importlib.util.spec_from_file_location(package_name, init_path)
-                package_module = importlib.util.module_from_spec(spec)
-                package_module.__package__ = package_name
-                package_module.__name__ = package_name
-                sys.modules[package_name] = package_module
-                spec.loader.exec_module(package_module)
-            except Exception as e:
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.debug(f"Could not preload {package_name}: {e}")
-    
-    # Импортируем анализ
-    analysis_path = ai_app_app_path / "services" / "analysis" / "analyzer.py"
-    if analysis_path.exists():
-        try:
-            spec = importlib.util.spec_from_file_location("app.services.analysis.analyzer", analysis_path)
-            analyzer_module = importlib.util.module_from_spec(spec)
-            analyzer_module.__package__ = "app.services.analysis"
-            analyzer_module.__name__ = "app.services.analysis.analyzer"
-            sys.modules["app.services.analysis.analyzer"] = analyzer_module
-            spec.loader.exec_module(analyzer_module)
-            analyze_plan = analyzer_module.analyze_plan
-        except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Could not import analyze_plan: {e}")
-            import traceback
-            logger.debug(traceback.format_exc())
-            analyze_plan = None
-    
-    # Импортируем чат
-    chat_path = ai_app_app_path / "services" / "chat" / "chatbot.py"
-    if chat_path.exists():
-        try:
-            spec = importlib.util.spec_from_file_location("app.services.chat.chatbot", chat_path)
-            chatbot_module = importlib.util.module_from_spec(spec)
-            chatbot_module.__package__ = "app.services.chat"
-            chatbot_module.__name__ = "app.services.chat.chatbot"
-            sys.modules["app.services.chat.chatbot"] = chatbot_module
-            spec.loader.exec_module(chatbot_module)
-            process_chat_message = chatbot_module.process_chat_message
-        except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Could not import process_chat_message: {e}")
-            import traceback
-            logger.debug(traceback.format_exc())
-            process_chat_message = None
-    
-    # Импортируем модели
-    models_path = ai_app_path / "models"
-    if models_path.exists():
-        sys.path.insert(0, str(ai_app_path))
-        try:
-            from models.plan import KanvaPlan
-            from models.chat import ChatMessage as AIChatMessage
-            from models.user import UserProfile
-        except ImportError:
-            pass
-    
-    AI_MODULES_AVAILABLE = (analyze_plan is not None or 
-                            process_chat_message is not None)
-except Exception as e:
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.warning(f"AI modules not available: {e}")
-    AI_MODULES_AVAILABLE = False
+                spec = importlib.util.spec_from_file_location("app.services.analysis.analyzer", analysis_path)
+                analyzer_module = importlib.util.module_from_spec(spec)
+                analyzer_module.__package__ = "app.services.analysis"
+                analyzer_module.__name__ = "app.services.analysis.analyzer"
+                sys.modules["app.services.analysis.analyzer"] = analyzer_module
+                spec.loader.exec_module(analyzer_module)
+                analyze_plan = analyzer_module.analyze_plan
+            except Exception:
+                analyze_plan = None
+        
+        # Импортируем чат
+        chat_path = _ai_app_app_path / "services" / "chat" / "chatbot.py"
+        if chat_path.exists():
+            try:
+                spec = importlib.util.spec_from_file_location("app.services.chat.chatbot", chat_path)
+                chatbot_module = importlib.util.module_from_spec(spec)
+                chatbot_module.__package__ = "app.services.chat"
+                chatbot_module.__name__ = "app.services.chat.chatbot"
+                sys.modules["app.services.chat.chatbot"] = chatbot_module
+                spec.loader.exec_module(chatbot_module)
+                process_chat_message = chatbot_module.process_chat_message
+            except Exception:
+                process_chat_message = None
+        
+        # Импортируем модели и сохраняем их глобально
+        models_path = _ai_app_path / "models"
+        global KanvaPlan, AIChatMessage, UserProfile
+        if models_path.exists():
+            try:
+                from models.plan import KanvaPlan
+                from models.chat import ChatMessage as AIChatMessage
+                from models.user import UserProfile
+            except ImportError:
+                KanvaPlan = None
+                AIChatMessage = None
+                UserProfile = None
+        else:
+            KanvaPlan = None
+            AIChatMessage = None
+            UserProfile = None
+        
+        AI_MODULES_AVAILABLE = (analyze_plan is not None or 
+                                process_chat_message is not None)
+        
+        # Восстанавливаем sys.path (удаляем добавленные пути)
+        # Это важно, чтобы не влиять на последующие импорты
+        sys.path[:] = original_sys_path
+        
+        # Удаляем созданные AI пакеты из sys.modules, чтобы не конфликтовать с backend
+        # Восстанавливаем сохраненные модули если они были
+        ai_packages_to_remove = [
+            "app.infrastructure",
+            "app.services.embedding",
+            "app.services.rag",
+            "app.services.analysis",
+            "app.services.chat",
+            "app.services.analysis.analyzer",
+            "app.services.chat.chatbot",
+        ]
+        for pkg_name in ai_packages_to_remove:
+            if pkg_name in sys.modules and pkg_name not in saved_modules:
+                del sys.modules[pkg_name]
+            elif pkg_name in saved_modules:
+                sys.modules[pkg_name] = saved_modules[pkg_name]
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"AI modules not available: {e}")
+        AI_MODULES_AVAILABLE = False
+
+# Загружаем AI модули при импорте модуля
+_load_ai_modules()
 
 
 async def analyze_plan_with_ai(
@@ -225,7 +253,7 @@ async def process_chat_with_ai(
     
     # Конвертируем план
     kanva_plan = None
-    if plan_data:
+    if plan_data and KanvaPlan is not None:
         kanva_plan = _convert_backend_plan_to_ai_format(plan_data)
     
     # Конвертируем историю чата

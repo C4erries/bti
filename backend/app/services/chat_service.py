@@ -157,7 +157,12 @@ async def delegate_to_ai(db: Session, chat: ChatThread, user_message: ChatMessag
         import logging
 
         logger = logging.getLogger(__name__)
-        logger.error(f"AI chat error: {e}")
+        # Не логируем полную ошибку, чтобы не раскрывать API ключи
+        error_msg = str(e)
+        # Убираем возможные упоминания API ключей из логов
+        if "API" in error_msg or "key" in error_msg.lower():
+            error_msg = "AI service error (details hidden for security)"
+        logger.error(f"AI chat error: {error_msg}")
         ai_text = "AI assistant is temporarily unavailable. Please try again later."
         return add_message(db, chat, sender=None, sender_type="AI", text=ai_text)
 

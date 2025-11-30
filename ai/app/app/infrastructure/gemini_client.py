@@ -70,27 +70,13 @@ async def generate_text(
         full_prompt = prompt
     
     def _generate():
-        from google.genai import types
-        
-        # Подготавливаем инструменты, если они есть
-        tools_config = None
-        if tools:
-            # Преобразуем инструменты в формат Gemini
-            function_declarations = []
-            for tool in tools:
-                function_declarations.append(
-                    types.FunctionDeclaration(
-                        name=tool["name"],
-                        description=tool.get("description", ""),
-                        parameters=tool.get("parameters", {})
-                    )
-                )
-            tools_config = types.Tool(function_declarations=function_declarations)
+        # В текущей версии google-genai параметр tools не поддерживается
+        # Поэтому просто не передаем его
+        # TODO: Обновить когда API будет поддерживать tools
         
         response = client.models.generate_content(
             model=model,
             contents=full_prompt,
-            tools=tools_config,
         )
         return response.text
     
@@ -98,7 +84,12 @@ async def generate_text(
         response_text = await asyncio.to_thread(_generate)
         return response_text
     except Exception as e:
-        raise RuntimeError(f"Не удалось получить текст из ответа Gemini API: {e}")
+        # Не раскрываем детали ошибки, чтобы не логировать API ключи
+        error_str = str(e)
+        # Проверяем, не содержит ли ошибка информацию об API ключе
+        if "API" in error_str or "key" in error_str.lower() or "403" in error_str or "PERMISSION_DENIED" in error_str:
+            raise RuntimeError("Не удалось получить ответ от Gemini API. Проверьте настройки API ключа.")
+        raise RuntimeError(f"Не удалось получить текст из ответа Gemini API: {error_str}")
 
 
 # Список моделей по убыванию качества для fallback

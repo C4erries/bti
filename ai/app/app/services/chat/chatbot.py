@@ -238,7 +238,12 @@ async def process_chat_message(
                 )
                 logger.info(f"Анализ плана завершен. Выявлено рисков: {len(risks)}")
             except Exception as e:
-                logger.warning(f"Не удалось проанализировать план: {e}")
+                # Не логируем полную ошибку, чтобы не раскрывать API ключи
+                error_msg = str(e)
+                if "API" in error_msg or "key" in error_msg.lower() or "403" in error_msg or "PERMISSION_DENIED" in error_msg:
+                    logger.warning("Не удалось проанализировать план (детали скрыты для безопасности)")
+                else:
+                    logger.warning(f"Не удалось проанализировать план: {error_msg}")
         
         # Формируем промпты
         system_prompt = _build_system_prompt(plan, order_context, relevant_chunks, user_profile, risks)
@@ -267,9 +272,22 @@ async def process_chat_message(
         )
         
     except Exception as e:
-        logger.error(f"Ошибка при обработке сообщения: {e}")
+        # Не логируем полную ошибку, чтобы не раскрывать API ключи
+        error_msg = str(e)
+        # Убираем возможные упоминания API ключей из логов
+        if "API" in error_msg or "key" in error_msg.lower() or "403" in error_msg or "PERMISSION_DENIED" in error_msg:
+            logger.error("Ошибка при обработке сообщения (детали скрыты для безопасности)")
+        else:
+            logger.error(f"Ошибка при обработке сообщения: {error_msg}")
+        # Не раскрываем детали ошибки пользователю, чтобы не логировать API ключи
+        error_msg = str(e)
+        if "API" in error_msg or "key" in error_msg.lower() or "403" in error_msg or "PERMISSION_DENIED" in error_msg:
+            user_error_msg = "Извините, произошла ошибка при обработке вашего запроса. Пожалуйста, попробуйте позже."
+        else:
+            user_error_msg = f"Извините, произошла ошибка при обработке вашего запроса: {error_msg}"
+        
         return ChatResponse(
-            content=f"Извините, произошла ошибка при обработке вашего запроса: {e}",
+            content=user_error_msg,
             sources=None,
             confidence=0.0
         )
