@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     # AI настройки
     gemini_api_key: Optional[str] = Field(default=None, description="API ключ Gemini")
     gemini_model: str = Field(default="gemini-2.0-flash", description="Модель Gemini")
-    cubicasa_api_url: str = Field(default="http://localhost:8000", description="URL API CubiCasa5K")
+    cubicasa_api_url: str = Field(default="http://localhost:8001", description="URL API CubiCasa5K (по умолчанию 8001 для локального запуска)")
     cubicasa_timeout: float = Field(default=300.0, description="Таймаут запроса к API CubiCasa5K в секундах")
     local_embedding_model: str = Field(default="all-MiniLM-L6-v2", description="Модель для локальных эмбеддингов")
     rag_chunk_size: int = Field(default=1000, description="Размер чанка для RAG")

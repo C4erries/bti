@@ -2,6 +2,12 @@
 
 ## Вариант 1: Локальный запуск (рекомендуется для разработки)
 
+**Включает автоматический запуск:**
+- ✅ Backend (FastAPI)
+- ✅ Frontend (React + Vite)
+- ✅ CubiCasa API (Docker) - для обработки изображений планов
+- ✅ Gemini AI - уже настроен через переменные окружения
+
 ### 1. Установка зависимостей
 
 #### Backend:
@@ -20,10 +26,12 @@ npm install
 
 #### Backend (.env файл уже создан из ai/_env):
 Файл `backend/.env` уже содержит настройки из `ai/_env`:
-- `GEMINI_API_KEY` - ключ для Gemini API
-- `GEMINI_MODEL` - модель Gemini
-- `CUBICASA_API_URL` - URL API CubiCasa (по умолчанию http://localhost:8000)
+- `GEMINI_API_KEY` - ключ для Gemini API (уже настроен из `ai/_env`)
+- `GEMINI_MODEL` - модель Gemini (gemini-2.0-flash)
+- `CUBICASA_API_URL` - URL API CubiCasa (по умолчанию http://localhost:8001)
 - `CUBICASA_TIMEOUT` - таймаут запросов (300 секунд)
+
+**Важно:** Переменные окружения автоматически загружаются из `ai/app/.env` при запуске backend.
 
 #### Frontend:
 Переменные окружения настраиваются автоматически через `vite.config.ts`.
@@ -40,8 +48,9 @@ chmod +x start-local.sh
 ```
 
 Скрипт автоматически:
-- Проверит порты 8000 и 5173
+- Проверит порты 8000, 5173 и 8001
 - Установит зависимости если нужно
+- Запустит CubiCasa API в Docker (если Docker установлен)
 - Запустит backend и frontend
 - Покажет ссылки для доступа
 
@@ -49,6 +58,11 @@ chmod +x start-local.sh
 - Backend API: http://localhost:8000
 - Frontend: http://localhost:5173
 - API Docs (Swagger): http://localhost:8000/docs
+- CubiCasa API: http://localhost:8001 (для обработки изображений планов)
+
+**Все AI функции работают из коробки:**
+- ✅ Gemini AI для чата и анализа (настроен через `ai/_env`)
+- ✅ CubiCasa API для обработки изображений планов (запускается автоматически)
 
 ### 4. Ручной запуск
 
@@ -93,16 +107,18 @@ docker-compose up --build
 
 ---
 
-## Опционально: Запуск CubiCasa API для обработки изображений планов
+## CubiCasa API (автоматический запуск)
 
-Для работы функции обработки изображений планов через AI нужно запустить CubiCasa API:
+**CubiCasa API запускается автоматически** при использовании `./start-local.sh` или `docker-compose up`.
+
+Если нужно запустить вручную или с GPU:
 
 ```bash
 cd ai/CubiCasa-docker
 
-# С GPU (рекомендуется)
+# С GPU (рекомендуется для быстрой обработки)
 docker build -t cubi-api -f Dockerfile .
-docker run --rm -it --init \
+docker run -d --name bti-cubicasa \
   --runtime=nvidia \
   --ipc=host \
   --publish 8001:8000 \
@@ -112,18 +128,13 @@ docker run --rm -it --init \
   -e DEVICE=cuda \
   cubi-api
 
-# Или на CPU
-docker run --rm -it \
+# Или на CPU (медленнее, но работает везде)
+docker run -d --name bti-cubicasa \
   --publish 8001:8000 \
   --volume=$PWD:/app \
   -e MODEL_WEIGHTS_PATH=model_best_val_loss_var.pkl \
   -e DEVICE=cpu \
   cubi-api
-```
-
-**Важно:** Если CubiCasa API запущен на другом порту (например, 8001), обновите `CUBICASA_API_URL` в `backend/.env`:
-```env
-CUBICASA_API_URL=http://localhost:8001
 ```
 
 Проверка работоспособности:
