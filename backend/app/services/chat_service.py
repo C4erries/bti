@@ -92,9 +92,62 @@ def add_message(
     return msg
 
 
-def delegate_to_ai(db: Session, chat: ChatThread, user_message: ChatMessageCreate) -> OrderChatMessage | None:
-    ai_text = f"AI stub: {user_message.message}"
-    return add_message(db, chat, sender=None, sender_type="AI", text=ai_text)
+async def delegate_to_ai(db: Session, chat: ChatThread, user_message: ChatMessageCreate) -> OrderChatMessage | None:
+    """Делегирование сообщения AI для обработки."""
+    try:
+        from app.services import ai_integration_service
+        
+        # Получаем контекст заказа если есть
+        order_context = {}
+        plan_data = None
+        if chat.order_id:
+            from app.models.order import Order
+            order = db.get(Order, chat.order_id)
+            if order:
+                order_context = {
+                    "order_id": str(order.id),
+                    "order_title": order.title,
+                    "order_status": order.status.value if hasattr(order.status, 'value') else str(order.status),
+                }
+                # Получаем последнюю версию плана если есть
+                from app.services import order_service
+                versions = order_service.get_plan_versions(db, order.id)
+                if versions:
+                    latest_version = versions[-1]
+                    plan_data = latest_version.plan
+        
+        # Получаем историю чата
+        history = list_chat_messages(db, chat)
+        chat_history = []
+        for msg in history[-10:]:  # Последние 10 сообщений
+            chat_history.append({
+                "role": "user" if msg.sender_type in ["CLIENT", "EXECUTOR"] else "assistant",
+                "content": msg.message_text
+            })
+        
+        # Получаем правила AI и статьи (можно расширить позже)
+        ai_rules = []
+        articles = []
+        
+        # Обрабатываем через AI
+        ai_response = await ai_integration_service.process_chat_with_ai(
+            message=user_message.message,
+            plan_data=plan_data,
+            order_context=order_context,
+            chat_history=chat_history,
+            ai_rules=ai_rules,
+            articles=articles,
+            user_profile=None
+        )
+        
+        return add_message(db, chat, sender=None, sender_type="AI", text=ai_response)
+    except Exception as e:
+        # Fallback на заглушку при ошибке
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"AI chat error: {e}")
+        ai_text = f"AI stub: {user_message.message}"
+        return add_message(db, chat, sender=None, sender_type="AI", text=ai_text)
 
 
 def ensure_access(chat: ChatThread, user: User, db: Session) -> None:
