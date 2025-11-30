@@ -1,4 +1,6 @@
+import math
 import uuid
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 
@@ -40,6 +42,89 @@ router = APIRouter(prefix="/client", tags=["Client"])
 def _ensure_ownership(order, user_id: uuid.UUID):
     if order.client_id != user_id:
         raise HTTPException(status_code=403, detail="Not your order")
+
+
+def _split_wall_segments(plan: dict) -> dict:
+    """Split walls with openings into separate wall elements without openings."""
+    if not plan:
+        return plan
+    meta = plan.get("meta", {}) or {}
+    scale = meta.get("scale") or {}
+    px_per_meter = scale.get("px_per_meter") or scale.get("pxPerMeter") or 1
+    try:
+        px_per_meter = float(px_per_meter)
+        if px_per_meter <= 0:
+            px_per_meter = 1
+    except Exception:
+        px_per_meter = 1
+
+    elements = []
+    for elem in plan.get("elements", []):
+        if elem.get("type") != "wall":
+            elements.append(elem)
+            continue
+        geom = elem.get("geometry") or {}
+        openings = geom.get("openings") or []
+        points = geom.get("points") or []
+        if geom.get("kind") != "segment" or len(points) != 4 or not openings:
+            elements.append(elem)
+            continue
+
+        x1, y1, x2, y2 = points
+        dx = x2 - x1
+        dy = y2 - y1
+        length_px = math.hypot(dx, dy)
+        if length_px == 0:
+            elements.append(elem)
+            continue
+        length_m = length_px / px_per_meter if px_per_meter else length_px
+
+        def point_at(offset_m: float) -> tuple[float, float]:
+            offset_px = offset_m * px_per_meter
+            ratio = offset_px / length_px
+            return x1 + dx * ratio, y1 + dy * ratio
+
+        openings_sorted = sorted(openings, key=lambda o: o.get("from_m", 0))
+        segments: list[tuple[float, float]] = []
+        cursor = 0.0
+        for op in openings_sorted:
+            start = max(0.0, float(op.get("from_m", 0)))
+            end = max(start, float(op.get("to_m", start)))
+            start = min(start, length_m)
+            end = min(end, length_m)
+            if start > cursor:
+                segments.append((cursor, start))
+            cursor = max(cursor, end)
+        if cursor < length_m:
+            segments.append((cursor, length_m))
+
+        if not segments:
+            elements.append(elem)
+            continue
+
+        for idx, (seg_start, seg_end) in enumerate(segments):
+            if seg_end - seg_start <= 0:
+                continue
+            sx, sy = point_at(seg_start)
+            ex, ey = point_at(seg_end)
+            new_elem = deepcopy(elem)
+            new_elem["id"] = f"{elem.get('id')}_seg{idx+1}"
+            new_elem_geom = deepcopy(geom)
+            new_elem_geom["points"] = [sx, sy, ex, ey]
+            new_elem_geom["openings"] = None
+            new_elem["geometry"] = new_elem_geom
+            elements.append(new_elem)
+
+    plan_copy = deepcopy(plan)
+    plan_copy["elements"] = elements
+    return plan_copy
+
+
+def _apply_split_to_plan_version(plan_version):
+    if not plan_version or not getattr(plan_version, "plan", None):
+        return plan_version
+    plan_version.plan = _split_wall_segments(plan_version.plan)
+    return plan_version
 
 
 def _map_rule_to_rag_dict(rule) -> dict:
@@ -109,6 +194,7 @@ def _get_latest_plan_data(db: Session, order_id: uuid.UUID) -> dict | None:
     if not versions:
         return None
     latest = versions[-1]
+    latest = _apply_split_to_plan_version(latest)
     return latest.plan
 
 
@@ -253,10 +339,12 @@ def get_plan_versions(
     if version:
         match = next((v for v in versions if v.version_type.lower() == version.lower()), None)
         if match:
+            match = _apply_split_to_plan_version(match)
             return OrderPlanVersion.model_validate(match)
     if not versions:
         raise HTTPException(status_code=404, detail="Plan not found")
-    return OrderPlanVersion.model_validate(versions[-1])
+    latest = _apply_split_to_plan_version(versions[-1])
+    return OrderPlanVersion.model_validate(latest)
 
 
 @router.get("/orders/{order_id}/plan/2d", response_model=Plan2DResponse, summary="Получить 2D план с полной геометрией")
@@ -295,6 +383,8 @@ def get_plan_2d(
         if creator:
             created_by_name = creator.full_name
     
+    plan_version = _apply_split_to_plan_version(plan_version)
+
     return Plan2DResponse(
         orderId=order_id,
         versionType=plan_version.version_type,
@@ -327,6 +417,7 @@ def get_plan_before_after(
     
     for v in versions:
         if v.version_type.upper() == "ORIGINAL":
+            v = _apply_split_to_plan_version(v)
             created_by_name = None
             if v.created_by_id:
                 from app.services import user_service
@@ -343,6 +434,7 @@ def get_plan_before_after(
                 createdBy=created_by_name,
             )
         elif v.version_type.upper() in ["MODIFIED", "EXECUTOR_EDITED"]:
+            v = _apply_split_to_plan_version(v)
             created_by_name = None
             if v.created_by_id:
                 from app.services import user_service
@@ -400,6 +492,7 @@ def get_plan_diff(
     modified_response = None
     
     if original_plan:
+        original_plan = _apply_split_to_plan_version(original_plan)
         created_by_name = None
         if original_plan.created_by_id:
             from app.services import user_service
@@ -417,6 +510,7 @@ def get_plan_diff(
         )
     
     if modified_plan:
+        modified_plan = _apply_split_to_plan_version(modified_plan)
         created_by_name = None
         if modified_plan.created_by_id:
             from app.services import user_service
@@ -510,6 +604,7 @@ def export_plan(
         plan_version = versions[-1]  # Последняя версия
     
     # Формируем метаданные
+    plan_version = _apply_split_to_plan_version(plan_version)
     metadata = {
         "versionType": plan_version.version_type,
         "versionId": str(plan_version.id),
@@ -579,6 +674,8 @@ def parse_plan_result(
     # Создаем версию плана (created_by может быть None, если это автоматический парсинг)
     version = order_service.add_plan_version(db, order, plan_request, created_by=current_user)
     
+    version = _apply_split_to_plan_version(version)
+    version = _apply_split_to_plan_version(version)
     return OrderPlanVersion.model_validate(version)
 
 
@@ -594,6 +691,7 @@ def add_plan_change(
         raise HTTPException(status_code=404, detail="Order not found")
     _ensure_ownership(order, current_user.id)
     version = order_service.add_plan_version(db, order, payload, created_by=current_user)
+    version = _apply_split_to_plan_version(version)
     return OrderPlanVersion.model_validate(version)
 
 
