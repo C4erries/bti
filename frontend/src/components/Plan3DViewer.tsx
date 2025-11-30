@@ -67,8 +67,8 @@ const zoneColorByType = (zoneType?: string, styleColor?: string | null) => {
 };
 
 const Ground = ({ width, height }: { width: number; height: number }) => (
-  <group>
-    <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+  <group position={[width / 2, 0, height / 2]}>
+    <mesh rotation={[Math.PI / 2, 0, 0]} receiveShadow>
       <planeGeometry args={[width, height]} />
       <meshStandardMaterial color="#f9fafb" />
     </mesh>
@@ -126,7 +126,7 @@ const ZoneMesh = ({ zone }: { zone: ZonePolygon3D }) => {
   const color = zoneColorByType(zone.zoneType, zone.style?.color ?? null);
 
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]} receiveShadow>
+    <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0.001, 0]} receiveShadow>
       <shapeGeometry args={[shape]} />
       <meshStandardMaterial
         color={color}

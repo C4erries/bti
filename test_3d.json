@@ -1,0 +1,444 @@
+{
+  "id": "ce938abe-4d9a-4f32-bd5a-1ff233537527",
+  "orderId": "a4704115-6aea-407a-a6a7-23b0696a6424",
+  "versionType": "MODIFIED",
+  "plan": {
+    "meta": {
+      "width": 800,
+      "height": 600,
+      "unit": "px",
+      "scale": {
+        "px_per_meter": 100
+      },
+      "background": null,
+      "ceiling_height_m": 2.7
+    },
+    "elements": [
+      {
+        "id": "wall_top",
+        "type": "wall",
+        "role": "EXISTING",
+        "loadBearing": true,
+        "thickness": 20,
+        "zoneType": null,
+        "relatedTo": null,
+        "selected": false,
+        "style": {
+          "color": "#b45a3c",
+          "textureUrl": "/static/textures/brick_basic.png"
+        },
+        "geometry": {
+          "kind": "segment",
+          "points": [
+            100,
+            100,
+            700,
+            100
+          ],
+          "openings": [
+            {
+              "id": "window_living",
+              "type": "window",
+              "from_m": 3.9,
+              "to_m": 5.1,
+              "bottom_m": 0.9,
+              "top_m": 2.1
+            }
+          ]
+        }
+      },
+      {
+        "id": "wall_right",
+        "type": "wall",
+        "role": "EXISTING",
+        "loadBearing": true,
+        "thickness": 20,
+        "zoneType": null,
+        "relatedTo": null,
+        "selected": false,
+        "style": {
+          "color": "#b45a3c",
+          "textureUrl": "/static/textures/brick_basic.png"
+        },
+        "geometry": {
+          "kind": "segment",
+          "points": [
+            700,
+            100,
+            700,
+            400
+          ],
+          "openings": null
+        }
+      },
+      {
+        "id": "wall_bottom",
+        "type": "wall",
+        "role": "EXISTING",
+        "loadBearing": true,
+        "thickness": 20,
+        "zoneType": null,
+        "relatedTo": null,
+        "selected": false,
+        "style": {
+          "color": "#b45a3c",
+          "textureUrl": "/static/textures/brick_basic.png"
+        },
+        "geometry": {
+          "kind": "segment",
+          "points": [
+            100,
+            400,
+            700,
+            400
+          ],
+          "openings": [
+            {
+              "id": "door_entrance",
+              "type": "door",
+              "from_m": 0.55,
+              "to_m": 1.45,
+              "bottom_m": 0,
+              "top_m": 2
+            }
+          ]
+        }
+      },
+      {
+        "id": "wall_left",
+        "type": "wall",
+        "role": "EXISTING",
+        "loadBearing": true,
+        "thickness": 20,
+        "zoneType": null,
+        "relatedTo": null,
+        "selected": false,
+        "style": {
+          "color": "#b45a3c",
+          "textureUrl": "/static/textures/brick_basic.png"
+        },
+        "geometry": {
+          "kind": "segment",
+          "points": [
+            100,
+            400,
+            100,
+            100
+          ],
+          "openings": null
+        }
+      },
+      {
+        "id": "wall_middle",
+        "type": "wall",
+        "role": "EXISTING",
+        "loadBearing": false,
+        "thickness": 15,
+        "zoneType": null,
+        "relatedTo": null,
+        "selected": false,
+        "style": {
+          "color": "#a0a0a0",
+          "textureUrl": "/static/textures/concrete.png"
+        },
+        "geometry": {
+          "kind": "segment",
+          "points": [
+            400,
+            100,
+            400,
+            400
+          ],
+          "openings": [
+            {
+              "id": "door_between_rooms",
+              "type": "door",
+              "from_m": 1.55,
+              "to_m": 2.45,
+              "bottom_m": 0,
+              "top_m": 2
+            }
+          ]
+        }
+      },
+      {
+        "id": "zone_bedroom",
+        "type": "zone",
+        "role": "EXISTING",
+        "loadBearing": null,
+        "thickness": null,
+        "zoneType": "bedroom",
+        "relatedTo": [
+          "wall_top",
+          "wall_left",
+          "wall_bottom",
+          "wall_middle"
+        ],
+        "selected": true,
+        "style": {
+          "color": "#CCE5FF",
+          "textureUrl": "/static/textures/wood_floor.png"
+        },
+        "geometry": {
+          "kind": "polygon",
+          "points": [
+            110,
+            110,
+            392.5,
+            110,
+            392.5,
+            390,
+            110,
+            390
+          ]
+        }
+      },
+      {
+        "id": "zone_living",
+        "type": "zone",
+        "role": "EXISTING",
+        "loadBearing": null,
+        "thickness": null,
+        "zoneType": "living_room",
+        "relatedTo": [
+          "wall_top",
+          "wall_middle",
+          "wall_right",
+          "wall_bottom"
+        ],
+        "selected": true,
+        "style": {
+          "color": "#FFE5CC",
+          "textureUrl": "/static/textures/wood_floor.png"
+        },
+        "geometry": {
+          "kind": "polygon",
+          "points": [
+            407.5,
+            110,
+            690,
+            110,
+            690,
+            390,
+            407.5,
+            390
+          ]
+        }
+      },
+      {
+        "id": "label_bedroom",
+        "type": "label",
+        "role": "EXISTING",
+        "loadBearing": null,
+        "thickness": null,
+        "zoneType": null,
+        "relatedTo": null,
+        "selected": true,
+        "style": null,
+        "text": "Bedroom",
+        "geometry": {
+          "kind": "point",
+          "x": 250,
+          "y": 230
+        }
+      },
+      {
+        "id": "label_living",
+        "type": "label",
+        "role": "EXISTING",
+        "loadBearing": null,
+        "thickness": null,
+        "zoneType": null,
+        "relatedTo": null,
+        "selected": false,
+        "style": null,
+        "text": "Living room",
+        "geometry": {
+          "kind": "point",
+          "x": 550,
+          "y": 230
+        }
+      }
+    ],
+    "objects3d": [
+      {
+        "id": "bed_1",
+        "type": "bed",
+        "position": {
+          "x": 1.5,
+          "y": 0,
+          "z": 1.5
+        },
+        "size": {
+          "x": 2,
+          "y": 0.6,
+          "z": 1.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 1.57,
+          "z": 0
+        },
+        "wallId": null,
+        "zoneId": "zone_bedroom",
+        "selected": true,
+        "meta": {
+          "note": "Кровать в спальне"
+        }
+      },
+      {
+        "id": "table_1",
+        "type": "table",
+        "position": {
+          "x": 4.5,
+          "y": 0,
+          "z": 1.8
+        },
+        "size": {
+          "x": 1.6,
+          "y": 0.75,
+          "z": 0.9
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "wallId": null,
+        "zoneId": "zone_living",
+        "selected": false,
+        "meta": {
+          "usage": "dining"
+        }
+      },
+      {
+        "id": "chair_1",
+        "type": "chair",
+        "position": {
+          "x": 4,
+          "y": 0,
+          "z": 1.4
+        },
+        "size": {
+          "x": 0.6,
+          "y": 0.9,
+          "z": 0.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0.3,
+          "z": 0
+        },
+        "wallId": null,
+        "zoneId": "zone_living",
+        "selected": true,
+        "meta": {
+          "note": "Стул у стола (левый)"
+        }
+      },
+      {
+        "id": "chair_2",
+        "type": "chair",
+        "position": {
+          "x": 5,
+          "y": 0,
+          "z": 1.4
+        },
+        "size": {
+          "x": 0.6,
+          "y": 0.9,
+          "z": 0.6
+        },
+        "rotation": {
+          "x": 0,
+          "y": -0.3,
+          "z": 0
+        },
+        "wallId": null,
+        "zoneId": "zone_living",
+        "selected": false,
+        "meta": {
+          "note": "Стул у стола (правый)"
+        }
+      },
+      {
+        "id": "door_entrance",
+        "type": "door",
+        "position": {
+          "x": 1,
+          "y": 0,
+          "z": 3
+        },
+        "size": {
+          "x": 0.9,
+          "y": 2,
+          "z": 0.1
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "wallId": "wall_bottom",
+        "zoneId": "zone_living",
+        "selected": true,
+        "meta": {
+          "openingDirection": "inside"
+        }
+      },
+      {
+        "id": "door_between_rooms",
+        "type": "door",
+        "position": {
+          "x": 3,
+          "y": 0,
+          "z": 2
+        },
+        "size": {
+          "x": 0.9,
+          "y": 2,
+          "z": 0.1
+        },
+        "rotation": {
+          "x": 0,
+          "y": 1.57,
+          "z": 0
+        },
+        "wallId": "wall_middle",
+        "zoneId": "zone_living",
+        "selected": true,
+        "meta": {
+          "openingDirection": "to_living"
+        }
+      },
+      {
+        "id": "window_living",
+        "type": "window",
+        "position": {
+          "x": 4.5,
+          "y": 1.4,
+          "z": 0
+        },
+        "size": {
+          "x": 1.2,
+          "y": 1.2,
+          "z": 0.1
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "wallId": "wall_top",
+        "zoneId": "zone_living",
+        "selected": false,
+        "meta": {
+          "isBalcony": false
+        }
+      }
+    ]
+  },
+  "comment": null,
+  "createdById": "d3840e2c-6804-40a1-ae64-4cd8afe5919a",
+  "createdAt": "2025-11-29T21:40:51.812413"
+}

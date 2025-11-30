@@ -20,7 +20,7 @@ export const from2DTo3D = (xPx: number, yPx: number, pxPerMeter: number) => {
   const scale = pxPerMeter > 0 ? pxPerMeter : 100;
   return {
     x: safeNumber(xPx, 0) / scale,
-    z: -safeNumber(yPx, 0) / scale,
+    z: safeNumber(yPx, 0) / scale,
   };
 };
 
