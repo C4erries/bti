@@ -15,59 +15,66 @@ if str(ai_app_path) not in sys.path:
 from app.core.config import settings
 
 # Импорты AI модулей (с обработкой ошибок)
+AI_MODULES_AVAILABLE = False
+process_plan_from_image = None
+analyze_plan = None
+process_chat_message = None
+CubiCasaProcessingError = Exception
+
 try:
-    # Пробуем импортировать из ai/app/app/services
-    from app.services.plan_processing import process_plan_from_image, CubiCasaProcessingError
-    from app.services.analysis import analyze_plan
-    from app.services.chat import process_chat_message
-    from models.plan import OrderPlanVersion as AIOrderPlanVersion, KanvaPlan
-    from models.chat import ChatMessage as AIChatMessage, ChatResponse as AIChatResponse
-    from models.risks import AiRisk
-    from models.user import UserProfile
-    AI_MODULES_AVAILABLE = True
-except ImportError:
-    try:
-        # Альтернативный путь импорта
-        import importlib.util
-        plan_processing_path = ai_app_path / "app" / "services" / "plan_processing" / "__init__.py"
-        if plan_processing_path.exists():
-            spec = importlib.util.spec_from_file_location("plan_processing", plan_processing_path)
-            plan_processing = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(plan_processing)
-            process_plan_from_image = plan_processing.process_plan_from_image
-            CubiCasaProcessingError = plan_processing.CubiCasaProcessingError
-        else:
-            process_plan_from_image = None
-            CubiCasaProcessingError = Exception
-        
-        analysis_path = ai_app_path / "app" / "services" / "analysis" / "__init__.py"
-        if analysis_path.exists():
-            spec = importlib.util.spec_from_file_location("analysis", analysis_path)
-            analysis = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(analysis)
-            analyze_plan = analysis.analyze_plan
-        else:
-            analyze_plan = None
-        
-        chat_path = ai_app_path / "app" / "services" / "chat" / "__init__.py"
-        if chat_path.exists():
-            spec = importlib.util.spec_from_file_location("chat", chat_path)
-            chat = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(chat)
-            process_chat_message = chat.process_chat_message
-        else:
-            process_chat_message = None
-        
-        AI_MODULES_AVAILABLE = (process_plan_from_image is not None or 
-                                analyze_plan is not None or 
-                                process_chat_message is not None)
-    except Exception as e:
-        print(f"Warning: AI modules not available: {e}")
-        AI_MODULES_AVAILABLE = False
-        process_plan_from_image = None
-        analyze_plan = None
-        process_chat_message = None
-        CubiCasaProcessingError = Exception
+    # Пробуем импортировать через динамический импорт
+    import importlib.util
+    import sys
+    
+    # Добавляем путь к AI модулям в sys.path если еще не добавлен
+    if str(ai_app_path) not in sys.path:
+        sys.path.insert(0, str(ai_app_path))
+    
+    # Импортируем модули
+    plan_processing_path = ai_app_path / "app" / "services" / "plan_processing" / "__init__.py"
+    if plan_processing_path.exists():
+        spec = importlib.util.spec_from_file_location("plan_processing", plan_processing_path)
+        plan_processing = importlib.util.module_from_spec(spec)
+        sys.modules['plan_processing'] = plan_processing
+        spec.loader.exec_module(plan_processing)
+        process_plan_from_image = plan_processing.process_plan_from_image
+        CubiCasaProcessingError = plan_processing.CubiCasaProcessingError
+    
+    analysis_path = ai_app_path / "app" / "services" / "analysis" / "analyzer.py"
+    if analysis_path.exists():
+        spec = importlib.util.spec_from_file_location("analyzer", analysis_path)
+        analyzer = importlib.util.module_from_spec(spec)
+        sys.modules['analyzer'] = analyzer
+        spec.loader.exec_module(analyzer)
+        analyze_plan = analyzer.analyze_plan
+    
+    chat_path = ai_app_path / "app" / "services" / "chat" / "chatbot.py"
+    if chat_path.exists():
+        spec = importlib.util.spec_from_file_location("chatbot", chat_path)
+        chatbot = importlib.util.module_from_spec(spec)
+        sys.modules['chatbot'] = chatbot
+        spec.loader.exec_module(chatbot)
+        process_chat_message = chatbot.process_chat_message
+    
+    # Импортируем модели
+    models_path = ai_app_path / "models"
+    if models_path.exists():
+        sys.path.insert(0, str(ai_app_path))
+        try:
+            from models.plan import KanvaPlan
+            from models.chat import ChatMessage as AIChatMessage
+            from models.user import UserProfile
+        except ImportError:
+            pass
+    
+    AI_MODULES_AVAILABLE = (process_plan_from_image is not None or 
+                            analyze_plan is not None or 
+                            process_chat_message is not None)
+except Exception as e:
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(f"AI modules not available: {e}")
+    AI_MODULES_AVAILABLE = False
 
 
 async def process_plan_image(
