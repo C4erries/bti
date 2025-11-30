@@ -27,17 +27,24 @@ def create_order(db: Session, client: User, data: CreateOrderRequest) -> Order:
     ensure_client_profile(db, client)
     calculator_data = data.calculator_input or {}
     
+    # Убеждаемся, что service_code установлен явно
+    service_code_value = "default"
+    
     order = Order(
         client_id=client.id,
         district_code=data.district_code,
         house_type_code=data.house_type_code,
-        service_code="default",  # Дефолтное значение, можно будет получать из справочника
+        service_code=service_code_value,  # Дефолтное значение, можно будет получать из справочника
         title=data.title,
         description=data.description,
         address=data.address,
         status=OrderStatus.SUBMITTED,
         calculator_input=calculator_data,
     )
+    
+    # Явно устанавливаем service_code, если он не был установлен
+    if not hasattr(order, 'service_code') or order.service_code is None:
+        order.service_code = service_code_value
     estimated, _ = calculate_order_price(db, order, calculator_data)
     order.estimated_price = estimated
     db.add(order)
