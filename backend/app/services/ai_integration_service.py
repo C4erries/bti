@@ -43,19 +43,27 @@ try:
     if str(ai_app_path) not in sys.path:
         sys.path.insert(0, str(ai_app_path))
     
-    # Загружаем необходимые пакеты ПЕРЕД импортом модулей
-    try:
-        # Загружаем infrastructure пакет
-        infrastructure_init = ai_app_app_path / "infrastructure" / "__init__.py"
-        if infrastructure_init.exists():
-            spec = importlib.util.spec_from_file_location("app.infrastructure", infrastructure_init)
-            infrastructure_module = importlib.util.module_from_spec(spec)
-            infrastructure_module.__package__ = "app.infrastructure"
-            infrastructure_module.__name__ = "app.infrastructure"
-            sys.modules["app.infrastructure"] = infrastructure_module
-            spec.loader.exec_module(infrastructure_module)
-    except Exception:
-        pass  # Игнорируем ошибки загрузки infrastructure
+    # Загружаем все необходимые пакеты ПЕРЕД импортом модулей
+    # Это нужно для корректной работы абсолютных импортов внутри модулей
+    packages_to_load = [
+        ("app.infrastructure", ai_app_app_path / "infrastructure" / "__init__.py"),
+        ("app.services.embedding", ai_app_app_path / "services" / "embedding" / "__init__.py"),
+        ("app.services.rag", ai_app_app_path / "services" / "rag" / "__init__.py"),
+    ]
+    
+    for package_name, init_path in packages_to_load:
+        if init_path.exists():
+            try:
+                spec = importlib.util.spec_from_file_location(package_name, init_path)
+                package_module = importlib.util.module_from_spec(spec)
+                package_module.__package__ = package_name
+                package_module.__name__ = package_name
+                sys.modules[package_name] = package_module
+                spec.loader.exec_module(package_module)
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.debug(f"Could not preload {package_name}: {e}")
     
     # Импортируем анализ
     analysis_path = ai_app_app_path / "services" / "analysis" / "analyzer.py"
