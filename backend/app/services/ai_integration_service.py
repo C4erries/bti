@@ -107,13 +107,7 @@ async def process_plan_image(
     if not AI_MODULES_AVAILABLE or not process_plan_from_image:
         raise RuntimeError("AI modules not available")
     
-    # Устанавливаем переменные окружения для AI модулей
-    # Сначала пробуем загрузить из ai/app/.env, затем из backend настроек
-    ai_env_path = ai_app_path / "app" / ".env"
-    if ai_env_path.exists():
-        from dotenv import load_dotenv
-        load_dotenv(ai_env_path)
-    
+    # Переменные окружения уже загружены при импорте модуля из ai/app/.env
     # Устанавливаем переменные из backend настроек (если не установлены)
     if not os.getenv("GEMINI_API_KEY") and settings.gemini_api_key:
         os.environ["GEMINI_API_KEY"] = settings.gemini_api_key
@@ -156,8 +150,10 @@ async def analyze_plan_with_ai(
     if not AI_MODULES_AVAILABLE or not analyze_plan:
         return "AI analysis not available", [], None
     
-    # Устанавливаем переменные окружения
-    os.environ.setdefault("GEMINI_API_KEY", settings.gemini_api_key or "")
+    # Переменные окружения уже загружены при импорте модуля из ai/app/.env
+    # Устанавливаем переменные из backend настроек (если не установлены)
+    if not os.getenv("GEMINI_API_KEY") and settings.gemini_api_key:
+        os.environ["GEMINI_API_KEY"] = settings.gemini_api_key
     
     # Конвертируем план в формат AI
     kanva_plan = _convert_backend_plan_to_ai_format(plan_data)
@@ -212,8 +208,10 @@ async def process_chat_with_ai(
     if not AI_MODULES_AVAILABLE or not process_chat_message:
         return "AI chat not available"
     
-    # Устанавливаем переменные окружения
-    os.environ.setdefault("GEMINI_API_KEY", settings.gemini_api_key or "")
+    # Переменные окружения уже загружены при импорте модуля из ai/app/.env
+    # Устанавливаем переменные из backend настроек (если не установлены)
+    if not os.getenv("GEMINI_API_KEY") and settings.gemini_api_key:
+        os.environ["GEMINI_API_KEY"] = settings.gemini_api_key
     
     # Создаем сообщение
     ai_message = AIChatMessage(role="user", content=message)
