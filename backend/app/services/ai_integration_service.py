@@ -20,9 +20,6 @@ _ai_env_path = _ai_app_path / ".env"
 if _ai_env_path.exists():
     load_dotenv(_ai_env_path)
 
-# Флаг для отслеживания, были ли пути добавлены
-_ai_paths_added = False
-
 # Импорты AI модулей (с обработкой ошибок)
 AI_MODULES_AVAILABLE = False
 analyze_plan = None
@@ -31,18 +28,14 @@ process_chat_message = None
 try:
     # Пробуем импортировать через динамический импорт
     import importlib.util
-    import sys
     
     # Добавляем пути к AI модулям в sys.path только для импорта AI модулей
     # Используем append вместо insert, чтобы backend пути имели приоритет
+    # Это важно - backend пути должны проверяться первыми
     if str(_ai_app_app_path) not in sys.path:
         sys.path.append(str(_ai_app_app_path))
     if str(_ai_app_path) not in sys.path:
         sys.path.append(str(_ai_app_path))
-    
-    # Импортируем модули (только Gemini AI - анализ и чат)
-    # Убеждаемся что пути добавлены
-    _ensure_ai_paths_in_sys_path()
     
     # Загружаем все необходимые пакеты ПЕРЕД импортом модулей
     # Это нужно для корректной работы абсолютных импортов внутри модулей
