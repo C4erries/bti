@@ -44,16 +44,21 @@ def _load_ai_modules():
             sys.path.append(str(_ai_app_path))
         
         # Загружаем все необходимые пакеты ПЕРЕД импортом модулей
+        # НЕ создаем app.services в sys.modules, чтобы не конфликтовать с backend
         packages_to_load = [
             ("app.infrastructure", _ai_app_app_path / "infrastructure" / "__init__.py"),
-            ("app.services", _ai_app_app_path / "services" / "__init__.py"),
+            # Пропускаем app.services - не создаем его в sys.modules
             ("app.services.embedding", _ai_app_app_path / "services" / "embedding" / "__init__.py"),
             ("app.services.rag", _ai_app_app_path / "services" / "rag" / "__init__.py"),
             ("app.services.analysis", _ai_app_app_path / "services" / "analysis" / "__init__.py"),
             ("app.services.chat", _ai_app_app_path / "services" / "chat" / "__init__.py"),
         ]
         
+        # Сохраняем существующие модули, чтобы восстановить их после
+        saved_modules = {}
         for package_name, init_path in packages_to_load:
+            if package_name in sys.modules:
+                saved_modules[package_name] = sys.modules[package_name]
             if init_path.exists():
                 try:
                     spec = importlib.util.spec_from_file_location(package_name, init_path)
@@ -109,6 +114,23 @@ def _load_ai_modules():
         # Восстанавливаем sys.path (удаляем добавленные пути)
         # Это важно, чтобы не влиять на последующие импорты
         sys.path[:] = original_sys_path
+        
+        # Удаляем созданные AI пакеты из sys.modules, чтобы не конфликтовать с backend
+        # Восстанавливаем сохраненные модули если они были
+        ai_packages_to_remove = [
+            "app.infrastructure",
+            "app.services.embedding",
+            "app.services.rag",
+            "app.services.analysis",
+            "app.services.chat",
+            "app.services.analysis.analyzer",
+            "app.services.chat.chatbot",
+        ]
+        for pkg_name in ai_packages_to_remove:
+            if pkg_name in sys.modules and pkg_name not in saved_modules:
+                del sys.modules[pkg_name]
+            elif pkg_name in saved_modules:
+                sys.modules[pkg_name] = saved_modules[pkg_name]
         
     except Exception as e:
         import logging
