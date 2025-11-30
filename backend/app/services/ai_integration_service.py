@@ -5,12 +5,18 @@ import os
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 import uuid
+from dotenv import load_dotenv
 
 # Добавляем путь к AI модулям
 project_root = Path(__file__).parent.parent.parent.parent
 ai_app_path = project_root / "ai" / "app"
 if str(ai_app_path) not in sys.path:
     sys.path.insert(0, str(ai_app_path))
+
+# Загружаем переменные окружения из ai/app/.env если существует
+ai_env_path = ai_app_path / ".env"
+if ai_env_path.exists():
+    load_dotenv(ai_env_path)
 
 from app.core.config import settings
 
@@ -102,7 +108,15 @@ async def process_plan_image(
         raise RuntimeError("AI modules not available")
     
     # Устанавливаем переменные окружения для AI модулей
-    os.environ.setdefault("GEMINI_API_KEY", settings.gemini_api_key or "")
+    # Сначала пробуем загрузить из ai/app/.env, затем из backend настроек
+    ai_env_path = ai_app_path / "app" / ".env"
+    if ai_env_path.exists():
+        from dotenv import load_dotenv
+        load_dotenv(ai_env_path)
+    
+    # Устанавливаем переменные из backend настроек (если не установлены)
+    if not os.getenv("GEMINI_API_KEY") and settings.gemini_api_key:
+        os.environ["GEMINI_API_KEY"] = settings.gemini_api_key
     os.environ.setdefault("CUBICASA_API_URL", settings.cubicasa_api_url)
     os.environ.setdefault("CUBICASA_TIMEOUT", str(settings.cubicasa_timeout))
     
