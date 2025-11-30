@@ -71,10 +71,12 @@ if [ "$CUBICASA_ENABLED" = true ]; then
         if docker ps -a | grep -q "bti-cubicasa"; then
             docker start bti-cubicasa > /dev/null 2>&1
         else
+            # Используем абсолютный путь с правильным экранированием для путей с двоеточиями
+            CUBICASA_ABS_DIR=$(cd "$CUBICASA_DIR" && pwd)
             docker run -d \
                 --name bti-cubicasa \
                 --publish 8001:8000 \
-                --volume="$CUBICASA_DIR:/app" \
+                --volume="${CUBICASA_ABS_DIR}:/app" \
                 -e MODEL_WEIGHTS_PATH=model_best_val_loss_var.pkl \
                 -e DEVICE=cpu \
                 cubi-api > /tmp/bti-cubicasa.log 2>&1
