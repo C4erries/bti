@@ -5,8 +5,14 @@ from typing import Optional, Literal
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
-# Загружаем переменные окружения из .env файла
-load_dotenv()
+# Загружаем переменные окружения из _env файла (или .env для обратной совместимости)
+from pathlib import Path
+_env_path = Path(__file__).parent.parent.parent / "_env"
+if _env_path.exists():
+    load_dotenv(_env_path)
+else:
+    # Fallback на .env для обратной совместимости
+    load_dotenv()
 
 
 class AppConfig(BaseModel):
@@ -90,7 +96,7 @@ def get_gemini_api_key() -> str:
     if not api_key:
         raise ValueError(
             "GEMINI_API_KEY не найден в переменных окружения. "
-            "Убедитесь, что файл .env существует и содержит GEMINI_API_KEY."
+            "Убедитесь, что файл _env (или .env) существует и содержит GEMINI_API_KEY."
         )
     
     return api_key

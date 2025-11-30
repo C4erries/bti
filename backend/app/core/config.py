@@ -28,9 +28,9 @@ class Settings(BaseSettings):
     analysis_top_k: int = Field(default=10, description="Количество релевантных чанков для анализа")
 
     model_config = {
-        "env_file": ".env",
+        "env_file": "_env",  # Используем _env вместо .env для безопасности
         "case_sensitive": False,
-        "extra": "ignore",  # Игнорируем неизвестные переменные из .env
+        "extra": "ignore",  # Игнорируем неизвестные переменные из _env
     }
 
 

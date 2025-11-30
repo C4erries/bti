@@ -15,10 +15,15 @@ _project_root = Path(__file__).parent.parent.parent.parent
 _ai_app_path = _project_root / "ai" / "app"
 _ai_app_app_path = _ai_app_path / "app"
 
-# Загружаем переменные окружения из ai/app/.env если существует
-_ai_env_path = _ai_app_path / ".env"
+# Загружаем переменные окружения из ai/app/_env если существует (или .env для обратной совместимости)
+_ai_env_path = _ai_app_path / "_env"
 if _ai_env_path.exists():
     load_dotenv(_ai_env_path)
+else:
+    # Fallback на .env для обратной совместимости
+    _ai_env_path_old = _ai_app_path / ".env"
+    if _ai_env_path_old.exists():
+        load_dotenv(_ai_env_path_old)
 
 # Импорты AI модулей (с обработкой ошибок)
 # НЕ добавляем пути в sys.path на уровне модуля, чтобы не конфликтовать с backend импортами
@@ -183,7 +188,7 @@ async def analyze_plan_with_ai(
     ai_rules = ai_rules or []
     articles = articles or []
     
-    # Переменные окружения уже загружены при импорте модуля из ai/app/.env
+    # Переменные окружения уже загружены при импорте модуля из ai/app/_env
     # Устанавливаем переменные из backend настроек (если не установлены)
     if not os.getenv("GEMINI_API_KEY") and settings.gemini_api_key:
         os.environ["GEMINI_API_KEY"] = settings.gemini_api_key
@@ -243,7 +248,7 @@ async def process_chat_with_ai(
     if not AI_MODULES_AVAILABLE or not process_chat_message:
         return "AI chat not available"
     
-    # Переменные окружения уже загружены при импорте модуля из ai/app/.env
+    # Переменные окружения уже загружены при импорте модуля из ai/app/_env
     # Устанавливаем переменные из backend настроек (если не установлены)
     if not os.getenv("GEMINI_API_KEY") and settings.gemini_api_key:
         os.environ["GEMINI_API_KEY"] = settings.gemini_api_key
