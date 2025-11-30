@@ -43,19 +43,24 @@ try:
     if str(ai_app_path) not in sys.path:
         sys.path.insert(0, str(ai_app_path))
     
+    # Загружаем необходимые пакеты ПЕРЕД импортом модулей
+    try:
+        # Загружаем infrastructure пакет
+        infrastructure_init = ai_app_app_path / "infrastructure" / "__init__.py"
+        if infrastructure_init.exists():
+            spec = importlib.util.spec_from_file_location("app.infrastructure", infrastructure_init)
+            infrastructure_module = importlib.util.module_from_spec(spec)
+            infrastructure_module.__package__ = "app.infrastructure"
+            infrastructure_module.__name__ = "app.infrastructure"
+            sys.modules["app.infrastructure"] = infrastructure_module
+            spec.loader.exec_module(infrastructure_module)
+    except Exception:
+        pass  # Игнорируем ошибки загрузки infrastructure
+    
     # Импортируем анализ
     analysis_path = ai_app_app_path / "services" / "analysis" / "analyzer.py"
     if analysis_path.exists():
         try:
-            # Создаем пакеты в sys.modules для корректной работы импортов
-            import types
-            if "app" not in sys.modules:
-                sys.modules["app"] = types.ModuleType("app")
-            if "app.services" not in sys.modules:
-                sys.modules["app.services"] = types.ModuleType("app.services")
-            if "app.services.analysis" not in sys.modules:
-                sys.modules["app.services.analysis"] = types.ModuleType("app.services.analysis")
-            
             spec = importlib.util.spec_from_file_location("app.services.analysis.analyzer", analysis_path)
             analyzer_module = importlib.util.module_from_spec(spec)
             analyzer_module.__package__ = "app.services.analysis"
@@ -75,15 +80,6 @@ try:
     chat_path = ai_app_app_path / "services" / "chat" / "chatbot.py"
     if chat_path.exists():
         try:
-            # Создаем пакеты в sys.modules для корректной работы импортов
-            import types
-            if "app" not in sys.modules:
-                sys.modules["app"] = types.ModuleType("app")
-            if "app.services" not in sys.modules:
-                sys.modules["app.services"] = types.ModuleType("app.services")
-            if "app.services.chat" not in sys.modules:
-                sys.modules["app.services.chat"] = types.ModuleType("app.services.chat")
-            
             spec = importlib.util.spec_from_file_location("app.services.chat.chatbot", chat_path)
             chatbot_module = importlib.util.module_from_spec(spec)
             chatbot_module.__package__ = "app.services.chat"
