@@ -9,8 +9,8 @@ from dotenv import load_dotenv
 
 from app.core.config import settings
 
-# Пути к AI модулям (вычисляем, но не добавляем в sys.path на уровне модуля)
-# чтобы не конфликтовать с backend импортами
+# Пути к AI модулям (вычисляем, но НЕ добавляем в sys.path на уровне модуля)
+# чтобы не конфликтовать с backend импортами типа app.services
 _project_root = Path(__file__).parent.parent.parent.parent
 _ai_app_path = _project_root / "ai" / "app"
 _ai_app_app_path = _ai_app_path / "app"
@@ -19,6 +19,9 @@ _ai_app_app_path = _ai_app_path / "app"
 _ai_env_path = _ai_app_path / ".env"
 if _ai_env_path.exists():
     load_dotenv(_ai_env_path)
+
+# Флаг для отслеживания, были ли пути добавлены
+_ai_paths_added = False
 
 # Импорты AI модулей (с обработкой ошибок)
 AI_MODULES_AVAILABLE = False
@@ -38,13 +41,8 @@ try:
         sys.path.append(str(_ai_app_path))
     
     # Импортируем модули (только Gemini AI - анализ и чат)
-    # Добавляем ai/app/app в sys.path ПЕРЕД импортом, чтобы app был доступен как пакет
-    # Используем append вместо insert, чтобы backend пути имели приоритет
-    if str(_ai_app_app_path) not in sys.path:
-        sys.path.append(str(_ai_app_app_path))
-    # Добавляем ai/app для импорта models
-    if str(_ai_app_path) not in sys.path:
-        sys.path.append(str(_ai_app_path))
+    # Убеждаемся что пути добавлены
+    _ensure_ai_paths_in_sys_path()
     
     # Загружаем все необходимые пакеты ПЕРЕД импортом модулей
     # Это нужно для корректной работы абсолютных импортов внутри модулей
