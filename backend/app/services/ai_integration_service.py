@@ -22,10 +22,8 @@ from app.core.config import settings
 
 # Импорты AI модулей (с обработкой ошибок)
 AI_MODULES_AVAILABLE = False
-process_plan_from_image = None
 analyze_plan = None
 process_chat_message = None
-CubiCasaProcessingError = Exception
 
 try:
     # Пробуем импортировать через динамический импорт
@@ -36,31 +34,77 @@ try:
     if str(ai_app_path) not in sys.path:
         sys.path.insert(0, str(ai_app_path))
     
-    # Импортируем модули
-    plan_processing_path = ai_app_path / "app" / "services" / "plan_processing" / "__init__.py"
-    if plan_processing_path.exists():
-        spec = importlib.util.spec_from_file_location("plan_processing", plan_processing_path)
-        plan_processing = importlib.util.module_from_spec(spec)
-        sys.modules['plan_processing'] = plan_processing
-        spec.loader.exec_module(plan_processing)
-        process_plan_from_image = plan_processing.process_plan_from_image
-        CubiCasaProcessingError = plan_processing.CubiCasaProcessingError
+    # Импортируем модули (только Gemini AI - анализ и чат)
+    # Добавляем ai/app/app в sys.path ПЕРЕД импортом, чтобы app был доступен как пакет
+    ai_app_app_path = ai_app_path / "app"
+    if str(ai_app_app_path) not in sys.path:
+        sys.path.insert(0, str(ai_app_app_path))
+    # Добавляем ai/app для импорта models
+    if str(ai_app_path) not in sys.path:
+        sys.path.insert(0, str(ai_app_path))
     
-    analysis_path = ai_app_path / "app" / "services" / "analysis" / "analyzer.py"
+    # Загружаем все необходимые пакеты ПЕРЕД импортом модулей
+    # Это нужно для корректной работы абсолютных импортов внутри модулей
+    packages_to_load = [
+        ("app.infrastructure", ai_app_app_path / "infrastructure" / "__init__.py"),
+        ("app.services", ai_app_app_path / "services" / "__init__.py"),
+        ("app.services.embedding", ai_app_app_path / "services" / "embedding" / "__init__.py"),
+        ("app.services.rag", ai_app_app_path / "services" / "rag" / "__init__.py"),
+        ("app.services.analysis", ai_app_app_path / "services" / "analysis" / "__init__.py"),
+        ("app.services.chat", ai_app_app_path / "services" / "chat" / "__init__.py"),
+    ]
+    
+    for package_name, init_path in packages_to_load:
+        if init_path.exists():
+            try:
+                spec = importlib.util.spec_from_file_location(package_name, init_path)
+                package_module = importlib.util.module_from_spec(spec)
+                package_module.__package__ = package_name
+                package_module.__name__ = package_name
+                sys.modules[package_name] = package_module
+                spec.loader.exec_module(package_module)
+            except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.debug(f"Could not preload {package_name}: {e}")
+    
+    # Импортируем анализ
+    analysis_path = ai_app_app_path / "services" / "analysis" / "analyzer.py"
     if analysis_path.exists():
-        spec = importlib.util.spec_from_file_location("analyzer", analysis_path)
-        analyzer = importlib.util.module_from_spec(spec)
-        sys.modules['analyzer'] = analyzer
-        spec.loader.exec_module(analyzer)
-        analyze_plan = analyzer.analyze_plan
+        try:
+            spec = importlib.util.spec_from_file_location("app.services.analysis.analyzer", analysis_path)
+            analyzer_module = importlib.util.module_from_spec(spec)
+            analyzer_module.__package__ = "app.services.analysis"
+            analyzer_module.__name__ = "app.services.analysis.analyzer"
+            sys.modules["app.services.analysis.analyzer"] = analyzer_module
+            spec.loader.exec_module(analyzer_module)
+            analyze_plan = analyzer_module.analyze_plan
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Could not import analyze_plan: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
+            analyze_plan = None
     
-    chat_path = ai_app_path / "app" / "services" / "chat" / "chatbot.py"
+    # Импортируем чат
+    chat_path = ai_app_app_path / "services" / "chat" / "chatbot.py"
     if chat_path.exists():
-        spec = importlib.util.spec_from_file_location("chatbot", chat_path)
-        chatbot = importlib.util.module_from_spec(spec)
-        sys.modules['chatbot'] = chatbot
-        spec.loader.exec_module(chatbot)
-        process_chat_message = chatbot.process_chat_message
+        try:
+            spec = importlib.util.spec_from_file_location("app.services.chat.chatbot", chat_path)
+            chatbot_module = importlib.util.module_from_spec(spec)
+            chatbot_module.__package__ = "app.services.chat"
+            chatbot_module.__name__ = "app.services.chat.chatbot"
+            sys.modules["app.services.chat.chatbot"] = chatbot_module
+            spec.loader.exec_module(chatbot_module)
+            process_chat_message = chatbot_module.process_chat_message
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Could not import process_chat_message: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
+            process_chat_message = None
     
     # Импортируем модели
     models_path = ai_app_path / "models"
@@ -73,58 +117,13 @@ try:
         except ImportError:
             pass
     
-    AI_MODULES_AVAILABLE = (process_plan_from_image is not None or 
-                            analyze_plan is not None or 
+    AI_MODULES_AVAILABLE = (analyze_plan is not None or 
                             process_chat_message is not None)
 except Exception as e:
     import logging
     logger = logging.getLogger(__name__)
     logger.warning(f"AI modules not available: {e}")
     AI_MODULES_AVAILABLE = False
-
-
-async def process_plan_image(
-    image_bytes: bytes,
-    order_id: Optional[uuid.UUID] = None,
-    version_type: str = "ORIGINAL",
-    px_per_meter: Optional[float] = None
-) -> Dict[str, Any]:
-    """
-    Обработка изображения плана через CubiCasa API.
-    
-    Args:
-        image_bytes: Байты изображения
-        order_id: ID заказа
-        version_type: Тип версии
-        px_per_meter: Пикселей на метр
-        
-    Returns:
-        Dict с результатом обработки в формате OrderPlanVersion
-        
-    Raises:
-        CubiCasaProcessingError: При ошибке обработки
-    """
-    if not AI_MODULES_AVAILABLE or not process_plan_from_image:
-        raise RuntimeError("AI modules not available")
-    
-    # Переменные окружения уже загружены при импорте модуля из ai/app/.env
-    # Устанавливаем переменные из backend настроек (если не установлены)
-    if not os.getenv("GEMINI_API_KEY") and settings.gemini_api_key:
-        os.environ["GEMINI_API_KEY"] = settings.gemini_api_key
-    os.environ.setdefault("CUBICASA_API_URL", settings.cubicasa_api_url)
-    os.environ.setdefault("CUBICASA_TIMEOUT", str(settings.cubicasa_timeout))
-    
-    order_id_str = str(order_id) if order_id else None
-    result = await process_plan_from_image(
-        image_bytes=image_bytes,
-        order_id=order_id_str,
-        version_type=version_type,
-        px_per_meter=px_per_meter,
-        cubicasa_api_url=settings.cubicasa_api_url
-    )
-    
-    # Конвертируем в формат для backend
-    return _convert_ai_plan_to_backend_format(result)
 
 
 async def analyze_plan_with_ai(

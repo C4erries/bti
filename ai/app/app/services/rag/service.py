@@ -2,8 +2,16 @@
 
 from typing import List, Dict, Any, Tuple
 import numpy as np
-from ...infrastructure import load_config
-from ..embedding import generate_embedding, chunk_text
+import sys
+from pathlib import Path
+
+# Настраиваем пути для абсолютных импортов
+ai_app_app_path = Path(__file__).parent.parent.parent
+if str(ai_app_app_path) not in sys.path:
+    sys.path.insert(0, str(ai_app_app_path))
+
+from app.infrastructure import load_config
+from app.services.embedding import generate_embedding, chunk_text
 
 
 class RAGIndex:

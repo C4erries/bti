@@ -46,60 +46,6 @@ if ! check_port 5173; then
     exit 1
 fi
 
-if ! check_port 8001; then
-    echo -e "${YELLOW}⚠ Порт 8001 занят (CubiCasa API). Продолжаем без CubiCasa...${NC}"
-    CUBICASA_ENABLED=false
-else
-    CUBICASA_ENABLED=true
-fi
-
-# Запуск CubiCasa API (опционально)
-if [ "$CUBICASA_ENABLED" = true ]; then
-    echo -e "${YELLOW}📦 Запуск CubiCasa API (Docker)...${NC}"
-    CUBICASA_DIR="$SCRIPT_DIR/ai/CubiCasa-docker"
-    
-    if [ -d "$CUBICASA_DIR" ] && command -v docker &> /dev/null; then
-        cd "$CUBICASA_DIR"
-        
-        # Проверяем существует ли образ
-        if ! docker images | grep -q "cubi-api"; then
-            echo -e "${YELLOW}  Сборка Docker образа CubiCasa...${NC}"
-            docker build -t cubi-api -f Dockerfile . > /tmp/bti-cubicasa-build.log 2>&1
-        fi
-        
-        # Запускаем контейнер
-        if docker ps -a | grep -q "bti-cubicasa"; then
-            docker start bti-cubicasa > /dev/null 2>&1
-        else
-            # Используем абсолютный путь с правильным экранированием для путей с двоеточиями
-            CUBICASA_ABS_DIR=$(cd "$CUBICASA_DIR" && pwd)
-            docker run -d \
-                --name bti-cubicasa \
-                --publish 8001:8000 \
-                --volume="${CUBICASA_ABS_DIR}:/app" \
-                -e MODEL_WEIGHTS_PATH=model_best_val_loss_var.pkl \
-                -e DEVICE=cpu \
-                cubi-api > /tmp/bti-cubicasa.log 2>&1
-        fi
-        
-        # Проверка запуска
-        sleep 5
-        if docker ps | grep -q "bti-cubicasa"; then
-            if curl -s http://localhost:8001/health > /dev/null 2>&1; then
-                echo -e "${GREEN}✓ CubiCasa API запущен на порту 8001${NC}"
-            else
-                echo -e "${YELLOW}⚠ CubiCasa API запущен, но еще не готов${NC}"
-            fi
-        else
-            echo -e "${YELLOW}⚠ Не удалось запустить CubiCasa API (продолжаем без него)${NC}"
-            CUBICASA_ENABLED=false
-        fi
-    else
-        echo -e "${YELLOW}⚠ CubiCasa API не найден или Docker не установлен (продолжаем без него)${NC}"
-        CUBICASA_ENABLED=false
-    fi
-fi
-
 # Запуск Backend
 echo -e "${YELLOW}📦 Запуск Backend (FastAPI)...${NC}"
 cd "$BACKEND_DIR"

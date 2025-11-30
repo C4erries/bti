@@ -1,7 +1,15 @@
 """Инструменты (function calling) для чат-бота."""
 
 from typing import List, Dict, Any, Optional
-from v2.models.plan import KanvaPlan
+import sys
+from pathlib import Path
+
+# Добавляем путь к моделям
+ai_app_path = Path(__file__).parent.parent.parent.parent
+if str(ai_app_path) not in sys.path:
+    sys.path.insert(0, str(ai_app_path))
+
+from models.plan import KanvaPlan
 
 
 def get_chat_tools() -> List[Dict[str, Any]]:
