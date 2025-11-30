@@ -70,36 +70,14 @@ async def generate_text(
         full_prompt = prompt
     
     def _generate():
-        from google.genai import types
+        # В текущей версии google-genai параметр tools не поддерживается
+        # Поэтому просто не передаем его
+        # TODO: Обновить когда API будет поддерживать tools
         
-        # Подготавливаем параметры для generate_content
-        generate_kwargs = {
-            "model": model,
-            "contents": full_prompt,
-        }
-        
-        # Добавляем инструменты только если они есть и поддерживаются
-        if tools:
-            try:
-                # Преобразуем инструменты в формат Gemini
-                function_declarations = []
-                for tool in tools:
-                    function_declarations.append(
-                        types.FunctionDeclaration(
-                            name=tool["name"],
-                            description=tool.get("description", ""),
-                            parameters=tool.get("parameters", {})
-                        )
-                    )
-                tools_config = types.Tool(function_declarations=function_declarations)
-                # Пробуем добавить tools, если API поддерживает
-                # Если нет - просто не передаем этот параметр
-                generate_kwargs["tools"] = tools_config
-            except Exception:
-                # Если tools не поддерживаются, просто не передаем их
-                pass
-        
-        response = client.models.generate_content(**generate_kwargs)
+        response = client.models.generate_content(
+            model=model,
+            contents=full_prompt,
+        )
         return response.text
     
     try:
