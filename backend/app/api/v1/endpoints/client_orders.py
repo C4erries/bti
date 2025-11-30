@@ -314,8 +314,14 @@ def create_order(
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
 ) -> Order:
-    order = order_service.create_order(db, current_user, payload)
-    return Order.model_validate(order)
+    try:
+        order = order_service.create_order(db, current_user, payload)
+        return Order.model_validate(order)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error creating order: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create order: {str(e)}")
 
 
 

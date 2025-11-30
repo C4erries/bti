@@ -16,7 +16,7 @@ from app.models.order import (
     OrderStatus,
     OrderStatusHistory,
 )
-from app.models.user import User
+from app.models.user import User, ClientProfile
 from app.schemas.orders import CreateOrderRequest, UpdateOrderRequest, SavePlanChangesRequest
 from app.services import user_service
 from app.services.price_calculator import calculate_order_price
@@ -26,10 +26,12 @@ from app.services.user_service import ensure_client_profile
 def create_order(db: Session, client: User, data: CreateOrderRequest) -> Order:
     ensure_client_profile(db, client)
     calculator_data = data.calculator_input or {}
+    
     order = Order(
         client_id=client.id,
         district_code=data.district_code,
         house_type_code=data.house_type_code,
+        service_code="default",  # Дефолтное значение, можно будет получать из справочника
         title=data.title,
         description=data.description,
         address=data.address,
