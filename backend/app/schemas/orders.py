@@ -341,6 +341,12 @@ class ExecutorScheduleVisitRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
+class RecognizePlanRequest(BaseModel):
+    file_id: uuid.UUID = Field(alias="fileId")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 from app.schemas.user import User  # noqa: E402
 
 ExecutorOrderDetails.model_rebuild()

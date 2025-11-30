@@ -74,6 +74,7 @@
   - `OrderPlanVersion` — версии плана (ORIGINAL / MODIFIED) в формате `Plan`;
   - `Plan` — JSON‑описание 2D‑геометрии (стены, зоны, проёмы, окна, подписи) + связанный 3D‑слой (`objects3d`).
   - Контракт `Plan`/`OrderPlanVersion.plan` совпадает с `3Dmodel_schema.json`: meta (width/height/unit px + scale/background + ceiling_height_m), geometry (segment/polygon/point с openings для стен), optional `style` для стен/зон (HEX‑цвет, textureUrl), objects3d (type + position/rotation/size с optional wallId/zoneId).
+  - Для быстрого распознавания по имени файла доступен шаблонный сервис: файл с именем `demo_3d.png`/`plan_studio.jpg`/`plan_two_rooms.png` распознаётся в соответствующий предопределённый `Plan` (используется в `POST /client/orders/{orderId}/plan/recognize`).
 
 - Чат и AI:
   - `OrderChatMessage` и клиентский чат по заказу;

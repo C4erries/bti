@@ -94,3 +94,10 @@ export async function apiFetch<T>(
 
   return payload as T;
 }
+
+export async function recognizePlan(orderId: string, fileId: string, token?: string | null) {
+  return apiFetch(`/client/orders/${orderId}/plan/recognize`, {
+    method: 'POST',
+    data: { fileId },
+  }, token);
+}

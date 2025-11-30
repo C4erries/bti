@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -17,6 +18,7 @@ from app.schemas.orders import (
     SavePlanChangesRequest,
     ParsePlanResultRequest,
     AiAnalysis,
+    RecognizePlanRequest,
 )
 from app.schemas.plan_responses import (
     Plan2DResponse,
@@ -26,7 +28,11 @@ from app.schemas.plan_responses import (
 )
 from app.models.order import OrderFile as OrderFileModel
 from app.core.config import settings
-from app.services import order_service
+from app.services import order_service, ai_analysis_service, plan_recognition_service
+from app.services.kafka_client import send as kafka_send
+from app.schemas.ai_messages import OrderAnalysisRequestMessage, OrderAnalysisPayload
+from app.services.kafka_client import send as kafka_send
+from app.schemas.ai_messages import OrderAnalysisRequestMessage, OrderAnalysisPayload
 
 class HTTPValidationError(BaseModel):
     detail: list[dict] | None = None
@@ -529,17 +535,31 @@ def trigger_ai_analyze(
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
 ):
-    analysis = AiAnalysis(
-        id=uuid.uuid4(),
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    _ensure_ownership(order, current_user.id)
+
+    request_id = uuid.uuid4()
+    plan_versions = order_service.get_plan_versions(db, order_id)
+    plan_schema = None
+    if plan_versions:
+        plan_schema = OrderPlanVersion.model_validate(plan_versions[-1])
+
+    analysis_model = ai_analysis_service.create_pending(db, order_id, request_id)
+    message = OrderAnalysisRequestMessage(
+        requestId=request_id,
         orderId=order_id,
-        decisionStatus="UNKNOWN",
-        summary=None,
-        risks=[],
-        legalWarnings=None,
-        financialWarnings=None,
-        rawResponse=None,
+        planVersionId=plan_schema.id if plan_schema else None,
+        createdAt=datetime.utcnow(),
+        payload=OrderAnalysisPayload(
+            order=Order.model_validate(order),
+            plan=plan_schema,
+            chatHistory=None,
+        ),
     )
-    return analysis
+    kafka_send(settings.kafka_ai_analysis_request_topic, message.model_dump(by_alias=True))
+    return ai_analysis_service.to_schema(analysis_model)
 
 
 @router.get("/orders/{order_id}/files/{file_id}")
@@ -574,14 +594,45 @@ def get_ai_analysis(
     db: Session = Depends(get_db_session),
     current_user=Depends(get_current_user),
 ):
-    analysis = AiAnalysis(
-        id=uuid.uuid4(),
-        orderId=order_id,
-        decisionStatus="UNKNOWN",
-        summary=None,
-        risks=[],
-        legalWarnings=None,
-        financialWarnings=None,
-        rawResponse=None,
-    )
-    return analysis
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    _ensure_ownership(order, current_user.id)
+    analysis_model = ai_analysis_service.get_latest_by_order(db, order_id)
+    if not analysis_model:
+        raise HTTPException(status_code=404, detail="AI analysis not found")
+    return ai_analysis_service.to_schema(analysis_model)
+
+
+@router.post(
+    "/orders/{order_id}/plan/recognize",
+    response_model=OrderPlanVersion,
+    summary="Распознать план по загруженному файлу",
+)
+def recognize_plan(
+    order_id: uuid.UUID,
+    payload: RecognizePlanRequest,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+):
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    _ensure_ownership(order, current_user.id)
+
+    file = db.get(OrderFileModel, payload.file_id)
+    if not file or file.order_id != order_id:
+        raise HTTPException(status_code=404, detail="File not found for this order")
+
+    plan = plan_recognition_service.get_plan_by_filename(file.filename)
+    if not plan:
+        raise HTTPException(status_code=422, detail="No plan template found for this filename")
+
+    existing_versions = order_service.get_plan_versions(db, order_id)
+    has_original = any(v.version_type.upper() == "ORIGINAL" for v in existing_versions)
+    version_type = "MODIFIED" if has_original else "ORIGINAL"
+    comment = f"Распознан план по изображению {file.filename}"
+
+    plan_request = SavePlanChangesRequest(versionType=version_type, plan=plan, comment=comment)
+    version = order_service.add_plan_version(db, order, plan_request, created_by=current_user)
+    return OrderPlanVersion.model_validate(version)
