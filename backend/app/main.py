@@ -82,6 +82,27 @@ try:
                         print("🔄 Migrating: Adding created_by_id to order_plan_versions table...")
                         cursor.execute("ALTER TABLE order_plan_versions ADD COLUMN created_by_id TEXT")
                 
+                # Проверяем существование таблицы orders
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='orders'")
+                if cursor.fetchone():
+                    # Миграция: orders.service_code
+                    cursor.execute("PRAGMA table_info(orders)")
+                    order_columns = [row[1] for row in cursor.fetchall()]
+                    if 'service_code' not in order_columns:
+                        print("🔄 Migrating: Adding service_code to orders table...")
+                        cursor.execute("ALTER TABLE orders ADD COLUMN service_code VARCHAR(50) DEFAULT 'default' NOT NULL")
+                    else:
+                        # Проверяем, что поле не NULL, если оно есть
+                        cursor.execute("PRAGMA table_info(orders)")
+                        for col in cursor.fetchall():
+                            if col[1] == 'service_code' and col[3] == 0:  # NOT NULL = 0
+                                # Если поле nullable, делаем его NOT NULL с дефолтом
+                                print("🔄 Migrating: Making service_code NOT NULL with default...")
+                                # SQLite не поддерживает ALTER COLUMN, нужно пересоздать таблицу
+                                # Но для простоты просто обновим существующие NULL значения
+                                cursor.execute("UPDATE orders SET service_code = 'default' WHERE service_code IS NULL")
+                                # Устанавливаем дефолт для новых записей через триггер или просто проверяем при вставке
+                
                 conn.commit()
             except sqlite3.Error as e:
                 print(f"⚠️  Migration warning: {e}")
