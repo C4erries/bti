@@ -439,12 +439,22 @@ async def analyze_plan(
                 risk = AiRisk(**normalized_risk)
                 risks.append(risk)
             except Exception as e:
-                logger.warning(f"Ошибка при парсинге риска: {e}")
+                # Не логируем полную ошибку, чтобы не раскрывать API ключи
+                error_msg = str(e)
+                if "API" in error_msg or "key" in error_msg.lower():
+                    logger.warning("Ошибка при парсинге риска (детали скрыты для безопасности)")
+                else:
+                    logger.warning(f"Ошибка при парсинге риска: {error_msg}")
                 continue
         
         return summary, risks, None
         
     except Exception as e:
-        logger.error(f"Ошибка при анализе плана: {e}")
+        # Не логируем полную ошибку, чтобы не раскрывать API ключи
+        error_msg = str(e)
+        if "API" in error_msg or "key" in error_msg.lower() or "403" in error_msg or "PERMISSION_DENIED" in error_msg:
+            logger.error("Ошибка при анализе плана (детали скрыты для безопасности)")
+        else:
+            logger.error(f"Ошибка при анализе плана: {error_msg}")
         return f"Ошибка при анализе: {e}", [], None
 

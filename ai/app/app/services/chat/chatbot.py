@@ -279,8 +279,15 @@ async def process_chat_message(
             logger.error("Ошибка при обработке сообщения (детали скрыты для безопасности)")
         else:
             logger.error(f"Ошибка при обработке сообщения: {error_msg}")
+        # Не раскрываем детали ошибки пользователю, чтобы не логировать API ключи
+        error_msg = str(e)
+        if "API" in error_msg or "key" in error_msg.lower() or "403" in error_msg or "PERMISSION_DENIED" in error_msg:
+            user_error_msg = "Извините, произошла ошибка при обработке вашего запроса. Пожалуйста, попробуйте позже."
+        else:
+            user_error_msg = f"Извините, произошла ошибка при обработке вашего запроса: {error_msg}"
+        
         return ChatResponse(
-            content=f"Извините, произошла ошибка при обработке вашего запроса: {e}",
+            content=user_error_msg,
             sources=None,
             confidence=0.0
         )
