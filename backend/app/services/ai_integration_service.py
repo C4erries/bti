@@ -7,18 +7,18 @@ from typing import Optional, Dict, Any, List
 import uuid
 from dotenv import load_dotenv
 
-# Добавляем путь к AI модулям
-project_root = Path(__file__).parent.parent.parent.parent
-ai_app_path = project_root / "ai" / "app"
-if str(ai_app_path) not in sys.path:
-    sys.path.insert(0, str(ai_app_path))
+from app.core.config import settings
+
+# Пути к AI модулям (вычисляем, но не добавляем в sys.path на уровне модуля)
+# чтобы не конфликтовать с backend импортами
+_project_root = Path(__file__).parent.parent.parent.parent
+_ai_app_path = _project_root / "ai" / "app"
+_ai_app_app_path = _ai_app_path / "app"
 
 # Загружаем переменные окружения из ai/app/.env если существует
-ai_env_path = ai_app_path / ".env"
-if ai_env_path.exists():
-    load_dotenv(ai_env_path)
-
-from app.core.config import settings
+_ai_env_path = _ai_app_path / ".env"
+if _ai_env_path.exists():
+    load_dotenv(_ai_env_path)
 
 # Импорты AI модулей (с обработкой ошибок)
 AI_MODULES_AVAILABLE = False
@@ -30,28 +30,31 @@ try:
     import importlib.util
     import sys
     
-    # Добавляем путь к AI модулям в sys.path если еще не добавлен
-    if str(ai_app_path) not in sys.path:
-        sys.path.insert(0, str(ai_app_path))
+    # Добавляем пути к AI модулям в sys.path только для импорта AI модулей
+    # Используем append вместо insert, чтобы backend пути имели приоритет
+    if str(_ai_app_app_path) not in sys.path:
+        sys.path.append(str(_ai_app_app_path))
+    if str(_ai_app_path) not in sys.path:
+        sys.path.append(str(_ai_app_path))
     
     # Импортируем модули (только Gemini AI - анализ и чат)
     # Добавляем ai/app/app в sys.path ПЕРЕД импортом, чтобы app был доступен как пакет
-    ai_app_app_path = ai_app_path / "app"
-    if str(ai_app_app_path) not in sys.path:
-        sys.path.insert(0, str(ai_app_app_path))
+    # Используем append вместо insert, чтобы backend пути имели приоритет
+    if str(_ai_app_app_path) not in sys.path:
+        sys.path.append(str(_ai_app_app_path))
     # Добавляем ai/app для импорта models
-    if str(ai_app_path) not in sys.path:
-        sys.path.insert(0, str(ai_app_path))
+    if str(_ai_app_path) not in sys.path:
+        sys.path.append(str(_ai_app_path))
     
     # Загружаем все необходимые пакеты ПЕРЕД импортом модулей
     # Это нужно для корректной работы абсолютных импортов внутри модулей
     packages_to_load = [
-        ("app.infrastructure", ai_app_app_path / "infrastructure" / "__init__.py"),
-        ("app.services", ai_app_app_path / "services" / "__init__.py"),
-        ("app.services.embedding", ai_app_app_path / "services" / "embedding" / "__init__.py"),
-        ("app.services.rag", ai_app_app_path / "services" / "rag" / "__init__.py"),
-        ("app.services.analysis", ai_app_app_path / "services" / "analysis" / "__init__.py"),
-        ("app.services.chat", ai_app_app_path / "services" / "chat" / "__init__.py"),
+        ("app.infrastructure", _ai_app_app_path / "infrastructure" / "__init__.py"),
+        ("app.services", _ai_app_app_path / "services" / "__init__.py"),
+        ("app.services.embedding", _ai_app_app_path / "services" / "embedding" / "__init__.py"),
+        ("app.services.rag", _ai_app_app_path / "services" / "rag" / "__init__.py"),
+        ("app.services.analysis", _ai_app_app_path / "services" / "analysis" / "__init__.py"),
+        ("app.services.chat", _ai_app_app_path / "services" / "chat" / "__init__.py"),
     ]
     
     for package_name, init_path in packages_to_load:
@@ -69,7 +72,7 @@ try:
                 logger.debug(f"Could not preload {package_name}: {e}")
     
     # Импортируем анализ
-    analysis_path = ai_app_app_path / "services" / "analysis" / "analyzer.py"
+    analysis_path = _ai_app_app_path / "services" / "analysis" / "analyzer.py"
     if analysis_path.exists():
         try:
             spec = importlib.util.spec_from_file_location("app.services.analysis.analyzer", analysis_path)
@@ -88,7 +91,7 @@ try:
             analyze_plan = None
     
     # Импортируем чат
-    chat_path = ai_app_app_path / "services" / "chat" / "chatbot.py"
+    chat_path = _ai_app_app_path / "services" / "chat" / "chatbot.py"
     if chat_path.exists():
         try:
             spec = importlib.util.spec_from_file_location("app.services.chat.chatbot", chat_path)
@@ -107,9 +110,10 @@ try:
             process_chat_message = None
     
     # Импортируем модели
-    models_path = ai_app_path / "models"
+    models_path = _ai_app_path / "models"
     if models_path.exists():
-        sys.path.insert(0, str(ai_app_path))
+        if str(_ai_app_path) not in sys.path:
+            sys.path.append(str(_ai_app_path))
         try:
             from models.plan import KanvaPlan
             from models.chat import ChatMessage as AIChatMessage
