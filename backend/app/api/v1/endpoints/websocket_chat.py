@@ -124,7 +124,7 @@ async def websocket_chat_endpoint(
                     
                     # Если нужно, делегируем AI (асинхронно)
                     if data.get("delegate_to_ai", False):
-                        ai_msg = chat_service.delegate_to_ai(
+                        ai_msg = await chat_service.delegate_to_ai(
                             db, chat, ChatMessageCreate(message=message_text)
                         )
                         if ai_msg:

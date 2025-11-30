@@ -422,6 +422,55 @@ def export_plan(
     )
 
 
+@router.post("/orders/{order_id}/plan/process-image", response_model=OrderPlanVersion, summary="Обработать изображение плана через CubiCasa API")
+async def process_plan_image(
+    order_id: uuid.UUID,
+    file: UploadFile = File(...),
+    px_per_meter: float | None = None,
+    db: Session = Depends(get_db_session),
+    current_user=Depends(get_current_user),
+) -> OrderPlanVersion:
+    """
+    Обработка изображения плана через CubiCasa API.
+    Автоматически создает версию плана ORIGINAL.
+    """
+    order = order_service.get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    _ensure_ownership(order, current_user.id)
+    
+    try:
+        from app.services import ai_integration_service
+        
+        # Читаем изображение
+        image_bytes = await file.read()
+        
+        # Обрабатываем через CubiCasa API
+        result = await ai_integration_service.process_plan_image(
+            image_bytes=image_bytes,
+            order_id=order_id,
+            version_type="ORIGINAL",
+            px_per_meter=px_per_meter
+        )
+        
+        # Создаем версию плана
+        from app.schemas.orders import SavePlanChangesRequest
+        plan_request = SavePlanChangesRequest(
+            versionType="ORIGINAL",
+            plan=result.get("plan", {}),
+            comment="Результат автоматической обработки изображения через CubiCasa API",
+        )
+        
+        version = order_service.add_plan_version(db, order, plan_request, created_by=current_user)
+        
+        return OrderPlanVersion.model_validate(version)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error processing plan image: {e}")
+        raise HTTPException(status_code=500, detail=f"Error processing plan image: {str(e)}")
+
+
 @router.post("/orders/{order_id}/plan/parse-result", response_model=OrderPlanVersion, summary="Принять результат парсинга плана от нейронки")
 def parse_plan_result(
     order_id: uuid.UUID,

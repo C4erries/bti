@@ -85,7 +85,7 @@ def list_messages(
 
 
 @router.post("/chats/{chat_id}/messages", response_model=ChatMessagePairResponse)
-def post_message(
+async def post_message(
     chat_id: uuid.UUID,
     payload: ChatMessageCreate,
     db: Session = Depends(get_db_session),
@@ -96,7 +96,7 @@ def post_message(
         raise HTTPException(status_code=404, detail="Chat not found")
     _check_chat_access(db, chat, current_user)
     user_msg = chat_service.add_message(db, chat, sender=current_user, sender_type=_sender_type(current_user), text=payload.message)
-    ai_msg = chat_service.delegate_to_ai(db, chat, payload)
+    ai_msg = await chat_service.delegate_to_ai(db, chat, payload)
     return ChatMessagePairResponse(userMessage=user_msg, aiMessage=ai_msg)
 
 
@@ -130,7 +130,7 @@ def order_chat_messages(
 
 
 @router.post("/orders/{order_id}/chat", response_model=ChatMessagePairResponse)
-def post_order_chat_message(
+async def post_order_chat_message(
     order_id: uuid.UUID,
     payload: ChatMessageCreate,
     db: Session = Depends(get_db_session),
@@ -144,5 +144,5 @@ def post_order_chat_message(
     user_msg = chat_service.add_message(
         db, chat, sender=current_user, sender_type=_sender_type(current_user), text=payload.message
     )
-    ai_msg = chat_service.delegate_to_ai(db, chat, payload)
+    ai_msg = await chat_service.delegate_to_ai(db, chat, payload)
     return ChatMessagePairResponse(userMessage=user_msg, aiMessage=ai_msg)
