@@ -47,8 +47,11 @@ try:
     # Это нужно для корректной работы абсолютных импортов внутри модулей
     packages_to_load = [
         ("app.infrastructure", ai_app_app_path / "infrastructure" / "__init__.py"),
+        ("app.services", ai_app_app_path / "services" / "__init__.py"),
         ("app.services.embedding", ai_app_app_path / "services" / "embedding" / "__init__.py"),
         ("app.services.rag", ai_app_app_path / "services" / "rag" / "__init__.py"),
+        ("app.services.analysis", ai_app_app_path / "services" / "analysis" / "__init__.py"),
+        ("app.services.chat", ai_app_app_path / "services" / "chat" / "__init__.py"),
     ]
     
     for package_name, init_path in packages_to_load:
